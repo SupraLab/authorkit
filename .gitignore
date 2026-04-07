@@ -1,0 +1,23 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors / temp
+.idea/
+*.swp
+*.swo
+*~
+
+# Local secrets (never commit keys)
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Packaged extension (often built from plugin/)
+*.vsix

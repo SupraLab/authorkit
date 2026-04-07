@@ -1,0 +1,21 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+*.egg-info/
+dist/
+build/
+
+# Local env / secrets
+.env
+.env.local
+
+# Coverage
+.coverage
+htmlcov/
+coverage.xml

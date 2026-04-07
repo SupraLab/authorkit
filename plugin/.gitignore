@@ -1,0 +1,12 @@
+out/
+node_modules/
+dist/
+*.vsix
+
+# Tests / tooling
+.vscode-test/
+coverage/
+*.tsbuildinfo
+
+# Source maps if emitted beside out/
+*.map
