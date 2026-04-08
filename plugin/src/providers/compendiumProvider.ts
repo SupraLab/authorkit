@@ -36,7 +36,7 @@ export class CompendiumProvider implements vscode.TreeDataProvider<EntryItem> {
       ti.contextValue = 'authorkit.compentry';
       ti.command = {
         command: 'authorkit.openEntryDetail',
-        title: 'Open',
+        title: vscode.l10n.t('Open'),
         arguments: [element.categoryName, element.entryName],
       };
       return ti;
@@ -47,7 +47,7 @@ export class CompendiumProvider implements vscode.TreeDataProvider<EntryItem> {
   async getChildren(_element?: EntryItem): Promise<EntryItem[]> {
     const root = getWorkspaceRoot();
     if (!root) {
-      return [{ kind: 'empty', id: 'no-ws', label: 'Open a folder first.' }];
+      return [{ kind: 'empty', id: 'no-ws', label: vscode.l10n.t('Open a folder first.') }];
     }
     const baseUrl = getApiBaseUrl();
     try {
@@ -59,13 +59,13 @@ export class CompendiumProvider implements vscode.TreeDataProvider<EntryItem> {
           {
             kind: 'empty',
             id: 'no-cat',
-            label: `No “${categoryName}” category yet. Use “New …”.`,
+            label: vscode.l10n.t('No \u201c{0}\u201d category yet. Use \u201cNew …\u201d.', categoryName),
           },
         ];
       }
       const entries = cat.entries || [];
       if (!entries.length) {
-        return [{ kind: 'empty', id: 'no-ent', label: 'No entries yet.' }];
+        return [{ kind: 'empty', id: 'no-ent', label: vscode.l10n.t('No entries yet.') }];
       }
       return entries.map((e, i) => ({
         kind: 'entry' as const,
@@ -77,7 +77,14 @@ export class CompendiumProvider implements vscode.TreeDataProvider<EntryItem> {
       }));
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      return [{ kind: 'error', id: 'err', label: 'Failed to load compendium', message: msg }];
+      return [
+        {
+          kind: 'error',
+          id: 'err',
+          label: vscode.l10n.t('Failed to load compendium'),
+          message: msg,
+        },
+      ];
     }
   }
 }

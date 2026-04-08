@@ -23,7 +23,9 @@ export function getWorkspaceRoot(): string | undefined {
   }
   if (folders.length > 1) {
     void vscode.window.showWarningMessage(
-      'AuthorKit: multiple workspace folders are open; only the first folder is used.'
+      vscode.l10n.t(
+        'AuthorKit: multiple workspace folders are open; only the first folder is used.'
+      )
     );
   }
   return folders[0].uri.fsPath;
@@ -32,7 +34,7 @@ export function getWorkspaceRoot(): string | undefined {
 export function requireWorkspaceRoot(): string {
   const root = getWorkspaceRoot();
   if (!root) {
-    throw new Error('Open a folder (File > Open Folder) to use AuthorKit.');
+    throw new Error(vscode.l10n.t('Open a folder (File > Open Folder) to use AuthorKit.'));
   }
   return root;
 }

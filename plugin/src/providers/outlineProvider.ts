@@ -57,7 +57,7 @@ export class OutlineProvider implements vscode.TreeDataProvider<OutlineTreeItem>
       ti.contextValue = 'authorkit.scene';
       ti.command = {
         command: 'authorkit.openScene',
-        title: 'Open scene',
+        title: vscode.l10n.t('Open scene'),
         arguments: [element.uuid],
       };
       return ti;
@@ -68,7 +68,13 @@ export class OutlineProvider implements vscode.TreeDataProvider<OutlineTreeItem>
   async getChildren(element?: OutlineTreeItem): Promise<OutlineTreeItem[]> {
     const root = getWorkspaceRoot();
     if (!root) {
-      return [{ kind: 'empty', id: 'no-ws', label: 'Open a folder to see the book structure.' }];
+      return [
+        {
+          kind: 'empty',
+          id: 'no-ws',
+          label: vscode.l10n.t('Open a folder to see the book structure.'),
+        },
+      ];
     }
     const baseUrl = getApiBaseUrl();
 
@@ -83,17 +89,24 @@ export class OutlineProvider implements vscode.TreeDataProvider<OutlineTreeItem>
           }>;
         }>;
         if (!acts?.length) {
-          return [{ kind: 'empty', id: 'no-acts', label: 'No acts in structure.' }];
+          return [{ kind: 'empty', id: 'no-acts', label: vscode.l10n.t('No acts in structure.') }];
         }
         return acts.map((act, actIndex) => ({
           kind: 'act' as const,
           id: `act-${actIndex}`,
-          label: act.name || `Act ${actIndex + 1}`,
+          label: act.name || vscode.l10n.t('Act {0}', String(actIndex + 1)),
           actIndex,
         }));
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        return [{ kind: 'error', id: 'err', label: 'Failed to load book structure', message: msg }];
+        return [
+          {
+            kind: 'error',
+            id: 'err',
+            label: vscode.l10n.t('Failed to load book structure'),
+            message: msg,
+          },
+        ];
       }
     }
 
@@ -114,7 +127,7 @@ export class OutlineProvider implements vscode.TreeDataProvider<OutlineTreeItem>
       return chapters.map((ch, chapterIndex) => ({
         kind: 'chapter' as const,
         id: `act-${element.actIndex}-ch-${chapterIndex}`,
-        label: ch.name || `Chapter ${chapterIndex + 1}`,
+        label: ch.name || vscode.l10n.t('Chapter {0}', String(chapterIndex + 1)),
         actIndex: element.actIndex,
         chapterIndex,
       }));
@@ -127,7 +140,7 @@ export class OutlineProvider implements vscode.TreeDataProvider<OutlineTreeItem>
         return {
           kind: 'scene' as const,
           id: `scene-${uuid}`,
-          label: sc.name || `Scene ${sceneIndex + 1}`,
+          label: sc.name || vscode.l10n.t('Scene {0}', String(sceneIndex + 1)),
           uuid,
           actIndex: element.actIndex,
           chapterIndex: element.chapterIndex,

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -12,11 +12,33 @@ class CompendiumExcerptRef(BaseModel):
     name: str = Field(..., description="Entry name within the category")
 
 
+class SelectionAttachment(BaseModel):
+    """Editor selection resolved to a scene sheet, compendium entry, or generic file."""
+
+    label: str = Field(..., description="Display title (scene name, entry name, or file stem)")
+    kind: Literal["scene", "compendium", "file"] = "file"
+    scene_uuid: Optional[str] = None
+    compendium_category: Optional[str] = None
+    compendium_name: Optional[str] = None
+    range_label: Optional[str] = Field(
+        None,
+        description="Visible span (e.g. line + char offsets) to disambiguate multiple excerpts.",
+    )
+
+
 class WorkshopMessageContext(BaseModel):
     """Structured context attached to a user turn (persisted with the message)."""
 
     scene_uuids: List[str] = Field(default_factory=list)
     compendium_excerpts: List[CompendiumExcerptRef] = Field(default_factory=list)
+    selection_labels: List[str] = Field(
+        default_factory=list,
+        description="Short labels for editor-attached selections (full text is in extra_context for the model only).",
+    )
+    selection_attachments: List[SelectionAttachment] = Field(
+        default_factory=list,
+        description="Structured selection targets for UI tags and insert actions.",
+    )
 
 
 class ChatMessage(BaseModel):
@@ -85,6 +107,18 @@ class WorkshopChatRequest(BaseModel):
     scene_uuids: List[str] = Field(
         default_factory=list,
         description="Scene UUIDs; server resolves prose from .authorkit/scenes/{uuid}.md",
+    )
+    selection_labels: List[str] = Field(
+        default_factory=list,
+        description="Labels for editor selection context (persisted for thread UI; text is in extra_context).",
+    )
+    selection_attachments: List[SelectionAttachment] = Field(
+        default_factory=list,
+        description="Resolved selection targets (scene/compendium/file) for UI and insert.",
+    )
+    user_language: Optional[str] = Field(
+        None,
+        description="Client UI locale (e.g. fr, en-US) to reinforce reply language for the model.",
     )
 
 

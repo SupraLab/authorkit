@@ -19,14 +19,18 @@ export async function openLlmSettingsPanel(context: vscode.ExtensionContext): Pr
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     void vscode.window.showErrorMessage(
-      `Could not load LLM settings from ${baseUrl}. Is the API running? ${msg}`
+      vscode.l10n.t(
+        'Could not load LLM settings from {0}. Is the API running? {1}',
+        baseUrl,
+        msg
+      )
     );
     return;
   }
 
   const panel = vscode.window.createWebviewPanel(
     'authorkitLlmSettings',
-    'LLM settings',
+    vscode.l10n.t('LLM settings'),
     vscode.ViewColumn.One,
     { enableScripts: true, retainContextWhenHidden: true }
   );
@@ -46,10 +50,12 @@ export async function openLlmSettingsPanel(context: vscode.ExtensionContext): Pr
           msg.settings.active_llm_config || '',
           vscode.ConfigurationTarget.Global
         );
-        void vscode.window.showInformationMessage('LLM settings saved (API + editor).');
+        void vscode.window.showInformationMessage(
+          vscode.l10n.t('LLM settings saved (API + editor).')
+        );
       } catch (e) {
         const m = e instanceof Error ? e.message : String(e);
-        void vscode.window.showErrorMessage(`Save failed: ${m}`);
+        void vscode.window.showErrorMessage(vscode.l10n.t('Save failed: {0}', m));
       }
     },
     undefined,
@@ -59,6 +65,22 @@ export async function openLlmSettingsPanel(context: vscode.ExtensionContext): Pr
 
 function getWebviewHtml(initial: AppSettingsData): string {
   const boot = JSON.stringify(initial).replace(/</g, '\\u003c');
+  const ui = {
+    hint: vscode.l10n.t(
+      'Saved to the API settings file (same as <code>~/.authorkit/settings.json</code> by default). Profile name must match a key under <code>llm_configs</code>; it is sent as <code>provider</code> for workshop chat.'
+    ),
+    h1: vscode.l10n.t('LLM profiles'),
+    activeProfile: vscode.l10n.t(
+      'Active profile <span class="ro">(used by the API as default)</span>'
+    ),
+    endpoint: vscode.l10n.t('Endpoint'),
+    model: vscode.l10n.t('Model'),
+    apiKey: vscode.l10n.t('API key'),
+    timeout: vscode.l10n.t('Timeout (seconds)'),
+    save: vscode.l10n.t('Save to API'),
+    provPrefix: vscode.l10n.t('Provider class: '),
+  };
+  const uiJson = JSON.stringify(ui).replace(/</g, '\\u003c');
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -92,30 +114,39 @@ function getWebviewHtml(initial: AppSettingsData): string {
   </style>
 </head>
 <body>
-  <h1>LLM profiles</h1>
-  <p class="hint">Saved to the API settings file (same as <code>~/.authorkit/settings.json</code> by default). Profile name must match a key under <code>llm_configs</code>; it is sent as <code>provider</code> for workshop chat.</p>
-  <label>Active profile <span class="ro">(used by the API as default)</span>
+  <h1 id="h1"></h1>
+  <p class="hint" id="hint"></p>
+  <label><span id="activeLbl"></span>
     <select id="active"></select>
   </label>
   <p class="ro" id="provLabel"></p>
-  <label>Endpoint
+  <label><span id="endpointLbl"></span>
     <input type="text" id="endpoint" autocomplete="off" />
   </label>
-  <label>Model
+  <label><span id="modelLbl"></span>
     <input type="text" id="model" autocomplete="off" />
   </label>
-  <label>API key
+  <label><span id="apiKeyLbl"></span>
     <input type="password" id="api_key" autocomplete="off" />
   </label>
-  <label>Timeout (seconds)
+  <label><span id="timeoutLbl"></span>
     <input type="number" id="timeout" min="1" step="1" />
   </label>
   <div>
-    <button type="button" id="save">Save to API</button>
+    <button type="button" id="save"></button>
   </div>
   <script>
     (function() {
       const vscode = acquireVsCodeApi();
+      var ui = ${uiJson};
+      document.getElementById('h1').textContent = ui.h1;
+      document.getElementById('hint').innerHTML = ui.hint;
+      document.getElementById('activeLbl').innerHTML = ui.activeProfile;
+      document.getElementById('endpointLbl').textContent = ui.endpoint;
+      document.getElementById('modelLbl').textContent = ui.model;
+      document.getElementById('apiKeyLbl').textContent = ui.apiKey;
+      document.getElementById('timeoutLbl').textContent = ui.timeout;
+      document.getElementById('save').textContent = ui.save;
       var app = ${boot};
       var editingKey = app.active_llm_config || Object.keys(app.llm_configs || {})[0] || '';
 
@@ -149,7 +180,7 @@ function getWebviewHtml(initial: AppSettingsData): string {
       function showFields() {
         var c = app.llm_configs[editingKey];
         if (!c) return;
-        document.getElementById('provLabel').textContent = 'Provider class: ' + (c.provider || '');
+        document.getElementById('provLabel').textContent = ui.provPrefix + (c.provider || '');
         document.getElementById('endpoint').value = c.endpoint || '';
         document.getElementById('model').value = c.model || '';
         document.getElementById('api_key').value = c.api_key || '';

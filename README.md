@@ -4,8 +4,6 @@
 
 **AuthorKit** evolves the ideas of [**Writingway**](https://github.com/aomukai/Writingway) (creative writing assistant) into a **decoupled** stack: a standalone **HTTP API** ([`api/`](api/README.md)) and a **Visual Studio Code extension** ([`plugin/`](plugin/README.md)). The user opens a **novel project folder** in VS Code; the API reads and writes project files under **`.authorkit/`** inside that workspace (and keeps workshop chat history in a **SQLite** database there).
 
-**You do not need the `source/` folder** to develop or run AuthorKit. The active codebase is **[`api/`](api/README.md)** and **[`plugin/`](plugin/README.md)** only. The optional `source/` directory, when present, holds the legacy **Writingway** desktop app (Python / PyQt) as an archival reference—it is not imported or invoked by the API or the extension.
-
 ## Authors
 
 - **Julien Moulin** — [julien@supralab.fr](mailto:julien@supralab.fr)

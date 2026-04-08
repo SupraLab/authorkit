@@ -1,7 +1,7 @@
 {
   "name": "author-kit",
-  "displayName": "AuthorKit",
-  "description": "Creative writing assistant — outline, characters, world, chat (AuthorKit API).",
+  "displayName": "%displayName%",
+  "description": "%description%",
   "version": "0.1.0",
   "license": "MIT",
   "author": "Julien Moulin <julien@supralab.fr>",
@@ -25,34 +25,40 @@
     "onStartupFinished"
   ],
   "main": "./out/extension.js",
+  "l10n": "./l10n",
   "contributes": {
     "configuration": {
-      "title": "AuthorKit",
+      "title": "%config.title%",
       "properties": {
         "authorkit.apiBaseUrl": {
           "type": "string",
           "default": "http://127.0.0.1:8765",
-          "description": "Base URL of the AuthorKit API (no trailing slash)."
+          "description": "%config.apiBaseUrl%"
         },
         "authorkit.worldCategoryName": {
           "type": "string",
           "default": "World",
-          "description": "Compendium category name used for the World tree."
+          "description": "%config.worldCategoryName%"
         },
         "authorkit.charactersCategoryName": {
           "type": "string",
           "default": "Characters",
-          "description": "Compendium category name used for the Characters tree."
+          "description": "%config.charactersCategoryName%"
         },
         "authorkit.activeLlmProfile": {
           "type": "string",
           "default": "",
-          "description": "LLM profile name (key under llm_configs on the API). Sent as workshop `provider` for @authorKit. Empty = use the API default active profile."
+          "description": "%config.activeLlmProfile%"
         },
         "authorkit.workshopModelOverride": {
           "type": "string",
           "default": "",
-          "description": "Optional model id for @authorKit chat. Empty = use the profile's model from API settings."
+          "description": "%config.workshopModelOverride%"
+        },
+        "authorkit.selectionCodeLens": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.selectionCodeLens%"
         }
       }
     },
@@ -60,14 +66,14 @@
       "activitybar": [
         {
           "id": "authorkit-sidebar",
-          "title": "AuthorKit",
+          "title": "%viewContainer.sidebar%",
           "icon": "media/icon.svg"
         }
       ],
       "auxiliarybar": [
         {
           "id": "authorkit-workshop",
-          "title": "Workshop",
+          "title": "%viewContainer.workshop%",
           "icon": "media/icon.svg"
         }
       ]
@@ -76,21 +82,21 @@
       "authorkit-sidebar": [
         {
           "id": "authorkit.outline",
-          "name": "Book Structure"
+          "name": "%view.bookStructure%"
         },
         {
           "id": "authorkit.characters",
-          "name": "Characters"
+          "name": "%view.characters%"
         },
         {
           "id": "authorkit.world",
-          "name": "World"
+          "name": "%view.world%"
         }
       ],
       "authorkit-workshop": [
         {
           "id": "authorkit.workshopView",
-          "name": "Workshop",
+          "name": "%view.workshopPanel%",
           "type": "webview",
           "visibility": "visible"
         }
@@ -99,87 +105,106 @@
     "commands": [
       {
         "command": "authorkit.refresh",
-        "title": "Refresh",
+        "title": "%command.refresh%",
         "icon": "$(refresh)"
       },
       {
         "command": "authorkit.createCharacter",
-        "title": "Character",
+        "title": "%command.createCharacter%",
         "icon": "$(add)"
       },
       {
         "command": "authorkit.createWorldEntry",
-        "title": "World",
+        "title": "%command.createWorldEntry%",
         "icon": "$(add)"
       },
       {
         "command": "authorkit.openScene",
-        "title": "Open Scene"
+        "title": "%command.openScene%"
       },
       {
         "command": "authorkit.openEntryDetail",
-        "title": "Open Entry"
+        "title": "%command.openEntry%"
       },
       {
         "command": "authorkit.openWorkshop",
-        "title": "Workshop",
+        "title": "%command.openWorkshop%",
         "icon": "$(comment-discussion)"
       },
       {
+        "command": "authorkit.addSelectionToWorkshop",
+        "title": "%command.addSelectionToWorkshop%",
+        "icon": "$(selection)"
+      },
+      {
         "command": "authorkit.openCompendiumChat",
-        "title": "Workshop…"
+        "title": "%command.openCompendiumChat%"
       },
       {
         "command": "authorkit.testConnection",
-        "title": "Test API Connection"
+        "title": "%command.testConnection%"
       },
       {
         "command": "authorkit.initWorkspace",
-        "title": "Initialize Workspace",
+        "title": "%command.initWorkspace%",
         "icon": "$(new-folder)"
       },
       {
         "command": "authorkit.openLlmSettings",
-        "title": "LLM Settings",
+        "title": "%command.openLlmSettings%",
         "icon": "$(settings-gear)"
       },
       {
         "command": "authorkit.renameStructureNode",
-        "title": "Rename…",
+        "title": "%command.renameStructureNode%",
         "icon": "$(edit)"
       },
       {
         "command": "authorkit.addAct",
-        "title": "Add Act",
+        "title": "%command.addAct%",
         "icon": "$(add)"
       },
       {
         "command": "authorkit.addChapter",
-        "title": "Add Chapter",
+        "title": "%command.addChapter%",
         "icon": "$(add)"
       },
       {
         "command": "authorkit.addScene",
-        "title": "Add Scene",
+        "title": "%command.addScene%",
         "icon": "$(add)"
       },
       {
         "command": "authorkit.deleteStructureNode",
-        "title": "Remove from Structure",
+        "title": "%command.deleteStructureNode%",
         "icon": "$(trash)"
       },
       {
         "command": "authorkit.moveStructureUp",
-        "title": "Move Up",
+        "title": "%command.moveStructureUp%",
         "icon": "$(arrow-up)"
       },
       {
         "command": "authorkit.moveStructureDown",
-        "title": "Move Down",
+        "title": "%command.moveStructureDown%",
         "icon": "$(arrow-down)"
       }
     ],
     "menus": {
+      "editor/title": [
+        {
+          "command": "authorkit.addSelectionToWorkshop",
+          "when": "editorTextFocus && editorHasSelection && workspaceFolderCount > 0",
+          "group": "navigation@82"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "authorkit.addSelectionToWorkshop",
+          "when": "editorTextFocus && editorHasSelection && workspaceFolderCount > 0",
+          "group": "9_authorkit@1"
+        }
+      ],
       "view/title": [
         {
           "command": "authorkit.refresh",
@@ -265,7 +290,7 @@
         "id": "authorkit.author-kit",
         "name": "authorKit",
         "fullName": "AuthorKit",
-        "description": "Optional: use @authorKit in VS Code Chat for the workshop API. Prefer the AuthorKit **Workshop** panel (toolbar) for the same API without @mentions.",
+        "description": "%chat.participant.description%",
         "isSticky": true
       }
     ]

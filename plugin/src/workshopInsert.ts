@@ -13,20 +13,22 @@ type InsertMode = 'end' | 'cursor';
 async function pickInsertMode(allowCursor: boolean): Promise<InsertMode | undefined> {
   const items: Array<{ label: string; description: string; mode: InsertMode }> = [
     {
-      label: 'At the end',
-      description: 'Append after existing content',
+      label: vscode.l10n.t('At the end'),
+      description: vscode.l10n.t('Append after existing content'),
       mode: 'end',
     },
   ];
   if (allowCursor) {
     items.push({
-      label: 'At cursor position',
-      description: 'Insert at the cursor in the editor',
+      label: vscode.l10n.t('At cursor position'),
+      description: vscode.l10n.t(
+        'Insert at the cursor; replaces selected text when there is a selection.'
+      ),
       mode: 'cursor',
     });
   }
   const picked = await vscode.window.showQuickPick(items, {
-    placeHolder: 'Where to insert the workshop reply?',
+    placeHolder: vscode.l10n.t('Where to insert the workshop reply?'),
   });
   return picked?.mode;
 }
@@ -44,8 +46,15 @@ async function insertAtUri(uri: vscode.Uri, text: string, mode: InsertMode): Pro
     const prefix = d.getText().length > 0 ? '\n\n' : '';
     await editor.edit((eb) => eb.insert(atEnd, prefix + text));
   } else {
-    const pos = editor.selection.active;
-    await editor.edit((eb) => eb.insert(pos, text));
+    await editor.edit((eb) => {
+      for (const sel of editor.selections) {
+        if (sel.isEmpty) {
+          eb.insert(sel.active, text);
+        } else {
+          eb.replace(sel, text);
+        }
+      }
+    });
   }
 }
 
@@ -64,7 +73,7 @@ export async function insertWorkshopReplyIntoScene(sceneUuid: string, reply: str
   const root = requireWorkspaceRoot();
   const trimmed = reply.trim();
   if (!trimmed) {
-    void vscode.window.showWarningMessage('No workshop reply to insert.');
+    void vscode.window.showWarningMessage(vscode.l10n.t('No workshop reply to insert.'));
     return;
   }
   const mode = await pickInsertMode(true);
@@ -75,10 +84,12 @@ export async function insertWorkshopReplyIntoScene(sceneUuid: string, reply: str
     await ensureSceneFile(root, sceneUuid);
     const uri = sceneUri(root, sceneUuid);
     await insertAtUri(uri, trimmed, mode);
-    void vscode.window.showInformationMessage('Workshop reply inserted into the scene.');
+    void vscode.window.showInformationMessage(
+      vscode.l10n.t('Workshop reply inserted into the scene.')
+    );
   } catch (e) {
     const m = e instanceof Error ? e.message : String(e);
-    void vscode.window.showErrorMessage(`Could not insert into scene: ${m}`);
+    void vscode.window.showErrorMessage(vscode.l10n.t('Could not insert into scene: {0}', m));
   }
 }
 
@@ -90,7 +101,7 @@ export async function insertWorkshopReplyIntoCompendium(
   const root = requireWorkspaceRoot();
   const trimmed = reply.trim();
   if (!trimmed) {
-    void vscode.window.showWarningMessage('No workshop reply to insert.');
+    void vscode.window.showWarningMessage(vscode.l10n.t('No workshop reply to insert.'));
     return;
   }
   const baseUrl = getApiBaseUrl();
@@ -99,13 +110,15 @@ export async function insertWorkshopReplyIntoCompendium(
     data = (await api.getCompendium(baseUrl, root)) as CompendiumData;
   } catch (e) {
     const m = e instanceof Error ? e.message : String(e);
-    void vscode.window.showErrorMessage(`Could not load compendium: ${m}`);
+    void vscode.window.showErrorMessage(vscode.l10n.t('Could not load compendium: {0}', m));
     return;
   }
   const cat = data.categories?.find((c) => c.name === categoryName);
   const entry = cat?.entries?.find((e) => e.name === entryName);
   if (!entry) {
-    void vscode.window.showErrorMessage(`Entry “${entryName}” not found in “${categoryName}”.`);
+    void vscode.window.showErrorMessage(
+      vscode.l10n.t('Entry \u201c{0}\u201d not found in \u201c{1}\u201d.', entryName, categoryName)
+    );
     return;
   }
   const eid = entry.id?.trim();
@@ -132,9 +145,11 @@ export async function insertWorkshopReplyIntoCompendium(
       entry.content = `${entry.content || ''}${entry.content ? '\n\n' : ''}${trimmed}`;
       await api.putCompendium(baseUrl, root, data);
     }
-    void vscode.window.showInformationMessage(`Workshop reply inserted into “${entryName}”.`);
+    void vscode.window.showInformationMessage(
+      vscode.l10n.t('Workshop reply inserted into \u201c{0}\u201d.', entryName)
+    );
   } catch (e) {
     const m = e instanceof Error ? e.message : String(e);
-    void vscode.window.showErrorMessage(`Could not insert into entry: ${m}`);
+    void vscode.window.showErrorMessage(vscode.l10n.t('Could not insert into entry: {0}', m));
   }
 }

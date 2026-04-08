@@ -81,10 +81,10 @@ export async function addAct(
   const acts = getActs(structure);
   const name =
     (await vscode.window.showInputBox({
-      title: 'New act',
-      value: `Act ${acts.length + 1}`,
-      prompt: 'Title for the new act',
-      validateInput: (v) => (v?.trim() ? undefined : 'Enter a title'),
+      title: vscode.l10n.t('New act'),
+      value: vscode.l10n.t('Act {0}', String(acts.length + 1)),
+      prompt: vscode.l10n.t('Title for the new act'),
+      validateInput: (v) => (v?.trim() ? undefined : vscode.l10n.t('Enter a title')),
     }))?.trim() ?? '';
   if (!name) {
     return;
@@ -93,7 +93,7 @@ export async function addAct(
   structure.acts = acts;
   await saveStructureFull(root, baseUrl, structure);
   outlineProvider.refresh();
-  void vscode.window.showInformationMessage(`Added act “${name}”.`);
+  void vscode.window.showInformationMessage(vscode.l10n.t('Added act \u201c{0}\u201d.', name));
 }
 
 export async function addChapter(
@@ -102,7 +102,9 @@ export async function addChapter(
 ): Promise<void> {
   const el = asNode3(item);
   if (!el || (el.kind !== 'act' && el.kind !== 'chapter')) {
-    void vscode.window.showInformationMessage('Select an act or chapter in Book Structure first.');
+    void vscode.window.showInformationMessage(
+      vscode.l10n.t('Select an act or chapter in Book Structure first.')
+    );
     return;
   }
   const root = requireWorkspaceRoot();
@@ -111,7 +113,7 @@ export async function addChapter(
   const acts = getActs(structure);
   const act = acts[el.actIndex];
   if (!act) {
-    void vscode.window.showErrorMessage('Act not found.');
+    void vscode.window.showErrorMessage(vscode.l10n.t('Act not found.'));
     return;
   }
   if (!act.chapters) {
@@ -119,10 +121,10 @@ export async function addChapter(
   }
   const ch =
     (await vscode.window.showInputBox({
-      title: 'New chapter',
-      value: `Chapter ${act.chapters.length + 1}`,
-      prompt: 'Title for the new chapter',
-      validateInput: (v) => (v?.trim() ? undefined : 'Enter a title'),
+      title: vscode.l10n.t('New chapter'),
+      value: vscode.l10n.t('Chapter {0}', String(act.chapters.length + 1)),
+      prompt: vscode.l10n.t('Title for the new chapter'),
+      validateInput: (v) => (v?.trim() ? undefined : vscode.l10n.t('Enter a title')),
     }))?.trim() ?? '';
   if (!ch) {
     return;
@@ -136,7 +138,7 @@ export async function addChapter(
   structure.acts = acts;
   await saveStructureFull(root, baseUrl, structure);
   outlineProvider.refresh();
-  void vscode.window.showInformationMessage(`Added chapter “${ch}”.`);
+  void vscode.window.showInformationMessage(vscode.l10n.t('Added chapter \u201c{0}\u201d.', ch));
 }
 
 export async function addScene(
@@ -145,7 +147,9 @@ export async function addScene(
 ): Promise<void> {
   const el = asNode3(item);
   if (!el || (el.kind !== 'chapter' && el.kind !== 'scene')) {
-    void vscode.window.showInformationMessage('Select a chapter or scene in Book Structure first.');
+    void vscode.window.showInformationMessage(
+      vscode.l10n.t('Select a chapter or scene in Book Structure first.')
+    );
     return;
   }
   const root = requireWorkspaceRoot();
@@ -155,7 +159,7 @@ export async function addScene(
   const act = acts[el.actIndex];
   const chapter = act?.chapters?.[el.chapterIndex];
   if (!act || !chapter) {
-    void vscode.window.showErrorMessage('Chapter not found.');
+    void vscode.window.showErrorMessage(vscode.l10n.t('Chapter not found.'));
     return;
   }
   if (!chapter.scenes) {
@@ -163,10 +167,10 @@ export async function addScene(
   }
   const sn =
     (await vscode.window.showInputBox({
-      title: 'New scene',
-      value: `Scene ${chapter.scenes.length + 1}`,
-      prompt: 'Title for the new scene',
-      validateInput: (v) => (v?.trim() ? undefined : 'Enter a title'),
+      title: vscode.l10n.t('New scene'),
+      value: vscode.l10n.t('Scene {0}', String(chapter.scenes.length + 1)),
+      prompt: vscode.l10n.t('Title for the new scene'),
+      validateInput: (v) => (v?.trim() ? undefined : vscode.l10n.t('Enter a title')),
     }))?.trim() ?? '';
   if (!sn) {
     return;
@@ -180,7 +184,7 @@ export async function addScene(
   structure.acts = acts;
   await saveStructureFull(root, baseUrl, structure);
   outlineProvider.refresh();
-  void vscode.window.showInformationMessage(`Added scene “${sn}”.`);
+  void vscode.window.showInformationMessage(vscode.l10n.t('Added scene \u201c{0}\u201d.', sn));
 }
 
 export async function deleteStructureNode(
@@ -189,7 +193,9 @@ export async function deleteStructureNode(
 ): Promise<void> {
   const el = asNode3(item);
   if (!el) {
-    void vscode.window.showInformationMessage('Select an act, chapter, or scene in Book Structure first.');
+    void vscode.window.showInformationMessage(
+      vscode.l10n.t('Select an act, chapter, or scene in Book Structure first.')
+    );
     return;
   }
   const root = requireWorkspaceRoot();
@@ -199,30 +205,33 @@ export async function deleteStructureNode(
 
   const label =
     el.kind === 'act'
-      ? acts[el.actIndex]?.name || 'this act'
+      ? acts[el.actIndex]?.name || vscode.l10n.t('this act')
       : el.kind === 'chapter'
-        ? acts[el.actIndex]?.chapters?.[el.chapterIndex]?.name || 'this chapter'
+        ? acts[el.actIndex]?.chapters?.[el.chapterIndex]?.name || vscode.l10n.t('this chapter')
         : acts[el.actIndex]?.chapters?.[el.chapterIndex]?.scenes?.[el.sceneIndex]?.name ||
-          'this scene';
+          vscode.l10n.t('this scene');
 
   const extra =
     el.kind === 'scene'
-      ? ' The scene Markdown file will be deleted if it exists.'
+      ? vscode.l10n.t(' The scene Markdown file will be deleted if it exists.')
       : el.kind === 'chapter' || el.kind === 'act'
-        ? ' Scene files under this part of the tree will be deleted from disk when possible.'
+        ? vscode.l10n.t(
+            ' Scene files under this part of the tree will be deleted from disk when possible.'
+          )
         : '';
+  const removeBtn = vscode.l10n.t('Remove');
   const pick = await vscode.window.showWarningMessage(
-    `Remove “${label}” from the book structure?${extra}`,
+    vscode.l10n.t('Remove \u201c{0}\u201d from the book structure?{1}', label, extra),
     { modal: true },
-    'Remove'
+    removeBtn
   );
-  if (pick !== 'Remove') {
+  if (pick !== removeBtn) {
     return;
   }
 
   if (el.kind === 'act') {
     if (acts.length <= 1) {
-      void vscode.window.showErrorMessage('Cannot remove the last act.');
+      void vscode.window.showErrorMessage(vscode.l10n.t('Cannot remove the last act.'));
       return;
     }
     const removed = acts[el.actIndex];
@@ -258,7 +267,7 @@ export async function deleteStructureNode(
   structure.acts = acts;
   await saveStructureFull(root, baseUrl, structure);
   outlineProvider.refresh();
-  void vscode.window.showInformationMessage('Structure updated.');
+  void vscode.window.showInformationMessage(vscode.l10n.t('Structure updated.'));
 }
 
 export async function moveStructureUp(
@@ -282,7 +291,9 @@ async function moveStructure(
 ): Promise<void> {
   const el = asNode3(item);
   if (!el) {
-    void vscode.window.showInformationMessage('Select an act, chapter, or scene in Book Structure first.');
+    void vscode.window.showInformationMessage(
+      vscode.l10n.t('Select an act, chapter, or scene in Book Structure first.')
+    );
     return;
   }
   const root = requireWorkspaceRoot();
@@ -295,7 +306,9 @@ async function moveStructure(
     const j = el.actIndex + delta;
     if (j < 0 || j >= acts.length) {
       void vscode.window.showInformationMessage(
-        dir === 'up' ? 'Already at the top.' : 'Already at the bottom.'
+        dir === 'up'
+          ? vscode.l10n.t('Already at the top.')
+          : vscode.l10n.t('Already at the bottom.')
       );
       return;
     }
@@ -311,7 +324,9 @@ async function moveStructure(
     const j = el.chapterIndex + delta;
     if (j < 0 || j >= chs.length) {
       void vscode.window.showInformationMessage(
-        dir === 'up' ? 'Already at the top.' : 'Already at the bottom.'
+        dir === 'up'
+          ? vscode.l10n.t('Already at the top.')
+          : vscode.l10n.t('Already at the bottom.')
       );
       return;
     }
@@ -327,7 +342,9 @@ async function moveStructure(
     const j = el.sceneIndex + delta;
     if (j < 0 || j >= scs.length) {
       void vscode.window.showInformationMessage(
-        dir === 'up' ? 'Already at the top.' : 'Already at the bottom.'
+        dir === 'up'
+          ? vscode.l10n.t('Already at the top.')
+          : vscode.l10n.t('Already at the bottom.')
       );
       return;
     }

@@ -19,6 +19,8 @@ import { OutlineProvider, type OutlineTreeItem } from './providers/outlineProvid
 import { openSceneDocument } from './scenes';
 import { openEntryDetailPanel } from './views/entryDetail';
 import { openLlmSettingsPanel } from './views/llmSettingsPanel';
+import { addEditorSelectionToWorkshop } from './commands/addEditorSelectionToWorkshop';
+import { registerWorkshopSelectionCodeLens } from './workshopSelectionCodeLens';
 import { openWorkshopChatPanel, registerWorkshopView } from './views/workshopChatPanel';
 import { CTX_HAS_PROJECT, updateAuthorkitProjectContext } from './workspaceContext';
 import { isValidUuid } from './uuidUtil';
@@ -52,13 +54,13 @@ export function activate(context: vscode.ExtensionContext): void {
 
   async function updateConnectionStatus(): Promise<void> {
     const base = getApiBaseUrl();
-    statusBar.tooltip = `API ${base}\nClick to test connection`;
+    statusBar.tooltip = vscode.l10n.t('API {0}\nClick to test connection', base);
     try {
       await api.health(base);
-      statusBar.text = '$(pass) API';
+      statusBar.text = vscode.l10n.t('$(pass) API');
       statusBar.backgroundColor = undefined;
     } catch {
-      statusBar.text = '$(error) API';
+      statusBar.text = vscode.l10n.t('$(error) API');
       statusBar.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
     }
     statusBar.show();
@@ -165,12 +167,12 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('authorkit.openScene', async (sceneUuid?: string) => {
       const id = typeof sceneUuid === 'string' ? sceneUuid : undefined;
       if (!id?.trim()) {
-        void vscode.window.showErrorMessage('No scene UUID.');
+        void vscode.window.showErrorMessage(vscode.l10n.t('No scene UUID.'));
         return;
       }
       if (!isValidUuid(id)) {
         void vscode.window.showErrorMessage(
-          'This scene does not have a valid UUID in the project structure.'
+          vscode.l10n.t('This scene does not have a valid UUID in the project structure.')
         );
         return;
       }
@@ -203,6 +205,14 @@ export function activate(context: vscode.ExtensionContext): void {
         void vscode.window.showErrorMessage(msg);
       }
     }),
+    vscode.commands.registerCommand('authorkit.addSelectionToWorkshop', async () => {
+      try {
+        await addEditorSelectionToWorkshop(context);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        void vscode.window.showErrorMessage(msg);
+      }
+    }),
     vscode.commands.registerCommand('authorkit.openCompendiumChat', async (item?: EntryItem) => {
       try {
         await openCompendiumChatFromTreeItem(context, item);
@@ -218,14 +228,16 @@ export function activate(context: vscode.ExtensionContext): void {
         let detail = '';
         try {
           const r = await api.ready(base);
-          detail = ` Ready: ${JSON.stringify(r)}`;
+          detail = vscode.l10n.t(' Ready: {0}', JSON.stringify(r));
         } catch {
-          detail = ' (/ready failed)';
+          detail = vscode.l10n.t(' (/ready failed)');
         }
-        void vscode.window.showInformationMessage(`API OK — ${base} (${h.status ?? 'ok'})${detail}`);
+        void vscode.window.showInformationMessage(
+          vscode.l10n.t('API OK — {0} ({1}){2}', base, String(h.status ?? 'ok'), detail)
+        );
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        void vscode.window.showErrorMessage(`API unreachable (${base}): ${msg}`);
+        void vscode.window.showErrorMessage(vscode.l10n.t('API unreachable ({0}): {1}', base, msg));
       }
       await updateConnectionStatus();
     }),
@@ -245,6 +257,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   registerAuthorkitChatParticipant(context);
   registerWorkshopView(context);
+  registerWorkshopSelectionCodeLens(context);
 
   void updateAuthorkitProjectContext();
   void updateConnectionStatus();

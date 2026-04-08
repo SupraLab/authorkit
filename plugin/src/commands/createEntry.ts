@@ -13,13 +13,26 @@ import {
   requireWorkspaceRoot,
 } from '../config';
 
+/** Localized category label for prompts when the stored name is the English default. */
+function compendiumCategoryDisplayForPrompt(stored: string): string {
+  const ch = getCharactersCategoryName();
+  const wo = getWorldCategoryName();
+  if (stored === ch) {
+    return stored === 'Characters' ? vscode.l10n.t('Characters') : stored;
+  }
+  if (stored === wo) {
+    return stored === 'World' ? vscode.l10n.t('World') : stored;
+  }
+  return stored;
+}
+
 export async function createCompendiumEntry(
   context: vscode.ExtensionContext,
   categoryName: string
 ): Promise<void> {
   const name = await vscode.window.showInputBox({
-    prompt: `New ${categoryName} entry name`,
-    validateInput: (v) => (v?.trim() ? undefined : 'Enter a name'),
+    prompt: vscode.l10n.t('New {0} entry name', compendiumCategoryDisplayForPrompt(categoryName)),
+    validateInput: (v) => (v?.trim() ? undefined : vscode.l10n.t('Enter a name')),
   });
   if (!name?.trim()) {
     return;
@@ -37,7 +50,9 @@ export async function createCompendiumEntry(
     data.categories.push(cat);
   }
   if (cat.entries.some((e) => e.name === trimmed)) {
-    void vscode.window.showWarningMessage(`An entry named “${trimmed}” already exists.`);
+    void vscode.window.showWarningMessage(
+      vscode.l10n.t('An entry named \u201c{0}\u201d already exists.', trimmed)
+    );
     return;
   }
 
@@ -53,12 +68,19 @@ export async function createCompendiumEntry(
   const chars = getCharactersCategoryName();
   const world = getWorldCategoryName();
   if (categoryName === chars || categoryName === world) {
+    const sheetRel = `.authorkit/${slugHint(categoryName)}/${id}.md`;
+    const openWs = vscode.l10n.t('Open Workshop');
+    const notNow = vscode.l10n.t('Not now');
     const pick = await vscode.window.showInformationMessage(
-      `Created “${trimmed}” (sheet: .authorkit/${slugHint(categoryName)}/${id}.md). Open Workshop with this entry as context?`,
-      'Open Workshop',
-      'Not now'
+      vscode.l10n.t(
+        'Created \u201c{0}\u201d (sheet: {1}). Open Workshop with this entry as context?',
+        trimmed,
+        sheetRel
+      ),
+      openWs,
+      notNow
     );
-    if (pick === 'Open Workshop') {
+    if (pick === openWs) {
       const sheetRel = path
         .relative(root, compendiumEntryMarkdownPath(root, categoryName, id))
         .replace(/\\/g, '/');
@@ -70,7 +92,12 @@ export async function createCompendiumEntry(
     }
   } else {
     void vscode.window.showInformationMessage(
-      `Created “${trimmed}” in ${categoryName} (Markdown: .authorkit/${slugHint(categoryName)}/${id}.md).`
+      vscode.l10n.t(
+        'Created \u201c{0}\u201d in {1} (Markdown: {2}).',
+        trimmed,
+        categoryName,
+        `.authorkit/${slugHint(categoryName)}/${id}.md`
+      )
     );
   }
 }

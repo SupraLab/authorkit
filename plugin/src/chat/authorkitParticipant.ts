@@ -12,21 +12,31 @@ export function registerAuthorkitChatParticipant(
     async (request, _context, response, token) => {
       const root = getWorkspaceRoot();
       if (!root) {
-        response.markdown('Open a single folder workspace (**File → Open Folder**) to use AuthorKit chat.');
+        response.markdown(
+          vscode.l10n.t(
+            'Open a single folder workspace (**File → Open Folder**) to use AuthorKit chat.'
+          )
+        );
         return {};
       }
       const baseUrl = getApiBaseUrl();
-      const llm = getWorkshopLlmOptions();
-      const ac = new AbortController();
-      token.onCancellationRequested(() => ac.abort());
-      try {
+        const llm = {
+          ...getWorkshopLlmOptions(),
+          userLanguage: vscode.env.language,
+        };
+        const ac = new AbortController();
+        token.onCancellationRequested(() => ac.abort());
+        try {
         if (context.workspaceState.get(CHAT_API_HINT_KEY) !== true) {
           void context.workspaceState.update(CHAT_API_HINT_KEY, true);
           response.markdown(
-            `*AuthorKit workshop at \`${baseUrl}\`. For the same flow without @authorKit, use **AuthorKit → Workshop** in the sidebar toolbar.*\n\n`
+            vscode.l10n.t(
+              '*AuthorKit workshop at `{0}`. For the same flow without @authorKit, use **AuthorKit → Workshop** in the sidebar toolbar.*\n\n',
+              baseUrl
+            )
           );
         }
-        response.progress('AuthorKit workshop…');
+        response.progress(vscode.l10n.t('AuthorKit workshop…'));
         for await (const chunk of api.workshopChatStream(
           baseUrl,
           root,
@@ -41,10 +51,10 @@ export function registerAuthorkitChatParticipant(
         }
       } catch (e) {
         if (e instanceof Error && e.name === 'AbortError') {
-          response.markdown('*Cancelled.*');
+          response.markdown(vscode.l10n.t('*Cancelled.*'));
         } else {
           const msg = e instanceof Error ? e.message : String(e);
-          response.markdown(`**Error:** ${msg}`);
+          response.markdown(vscode.l10n.t('**Error:** {0}', msg));
         }
       }
       return {};

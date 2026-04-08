@@ -20,11 +20,17 @@ let streamAbort: AbortController | undefined;
 let pendingOpen: { initialPrompt?: string; applyContext?: WorkshopApplyContext } | undefined;
 
 export interface WorkshopApplyContext {
-  mode: 'none' | 'scene' | 'character' | 'world';
+  mode: 'none' | 'scene' | 'character' | 'world' | 'selection';
   sceneUuid?: string;
   sceneLabel?: string;
   entryName?: string;
   sheetRel?: string;
+  /** When mode === 'selection', snippets from the active editor (command / context menu). */
+  selectionItems?: Array<{
+    text: string;
+    attachment: api.SelectionAttachment;
+    detailTitle?: string;
+  }>;
 }
 
 export interface OpenWorkshopOptions {
@@ -36,7 +42,13 @@ export interface OpenWorkshopOptions {
 export type WorkshopContextChip =
   | { kind: 'scene'; uuid: string; label: string }
   | { kind: 'character'; name: string }
-  | { kind: 'world'; name: string };
+  | { kind: 'world'; name: string }
+  | {
+      kind: 'selection';
+      text: string;
+      attachment: api.SelectionAttachment;
+      detailTitle?: string;
+    };
 
 function threadStateKey(workspaceRoot: string): string {
   return `authorkit.workshop.activeThread.${workspaceRoot}`;
@@ -51,30 +63,130 @@ function getNonce(): string {
   return t;
 }
 
+/** One tag segment for the composer chip strip (deduped). */
+function contextChipTagLine(c: WorkshopContextChip): string {
+  if (c.kind === 'scene') {
+    const lab = c.label?.trim() || c.uuid.slice(0, 8);
+    return vscode.l10n.t('scene: {0}', lab);
+  }
+  if (c.kind === 'character') {
+    return vscode.l10n.t('character: {0}', c.name);
+  }
+  if (c.kind === 'world') {
+    return vscode.l10n.t('world: {0}', c.name);
+  }
+  const a = c.attachment;
+  const rng = a.range_label?.trim() ? ` · ${a.range_label.trim()}` : '';
+  if (a.kind === 'scene') {
+    return vscode.l10n.t('scene: {0}', a.label) + rng;
+  }
+  if (a.kind === 'compendium') {
+    const charsCat = getCharactersCategoryName();
+    const worldCat = getWorldCategoryName();
+    const cat = a.compendium_category || '';
+    const nm = a.compendium_name || '';
+    if (cat === charsCat) {
+      return vscode.l10n.t('character: {0}', nm) + rng;
+    }
+    if (cat === worldCat) {
+      return vscode.l10n.t('world: {0}', nm) + rng;
+    }
+    return vscode.l10n.t('compendium: {0} — {1}', cat, nm) + rng;
+  }
+  return vscode.l10n.t('selection: {0}', a.label) + rng;
+}
+
 /** Short line for the chat bubble next to "You", e.g. "scene: Beat 1 · character: Ethan". */
 function chipTagLineForUi(chips: WorkshopContextChip[]): string {
   if (!chips.length) {
     return '';
   }
-  return chips
-    .map((c) => {
-      if (c.kind === 'scene') {
-        const lab = c.label?.trim() || c.uuid.slice(0, 8);
-        return `scene: ${lab}`;
-      }
-      if (c.kind === 'character') {
-        return `character: ${c.name}`;
-      }
-      return `world: ${c.name}`;
-    })
-    .join(' · ');
+  const seen = new Set<string>();
+  const parts: string[] = [];
+  for (const c of chips) {
+    const line = contextChipTagLine(c);
+    if (seen.has(line)) {
+      continue;
+    }
+    seen.add(line);
+    parts.push(line);
+  }
+  return parts.join(' · ');
+}
+
+function buildWorkshopWebviewStrings(): Record<string, string> {
+  return {
+    thread: vscode.l10n.t('Thread'),
+    ariaActiveThread: vscode.l10n.t('Active thread'),
+    newThread: vscode.l10n.t('New thread'),
+    renameThread: vscode.l10n.t('Rename thread'),
+    deleteThread: vscode.l10n.t('Delete thread'),
+    context: vscode.l10n.t('Context'),
+    addScene: vscode.l10n.t('Add scene'),
+    addCharacter: vscode.l10n.t('Add character'),
+    addWorldEntry: vscode.l10n.t('Add world entry'),
+    reloadLists: vscode.l10n.t('Reload lists'),
+    contextTagsAria: vscode.l10n.t('Context tags'),
+    messagePlaceholder: vscode.l10n.t('Message… (⌃/⌘+Enter)'),
+    sendTitle: vscode.l10n.t('Send'),
+    sendAria: vscode.l10n.t('Send'),
+    stopTitle: vscode.l10n.t('Stop'),
+    stopAria: vscode.l10n.t('Stop'),
+    noScenesInStructure: vscode.l10n.t('No scenes in structure'),
+    noCharacters: vscode.l10n.t('No characters'),
+    noWorldEntries: vscode.l10n.t('No world entries'),
+    removeChipAria: vscode.l10n.t('Remove'),
+    you: vscode.l10n.t('You'),
+    workshop: vscode.l10n.t('Workshop'),
+    error: vscode.l10n.t('Error'),
+    insertScenePrefix: vscode.l10n.t('Insert into scene: '),
+    insertIntoPrefix: vscode.l10n.t('Insert into: '),
+    contextErrorPrefix: vscode.l10n.t('Context: '),
+    sceneTag: vscode.l10n.t('scene: '),
+    charTag: vscode.l10n.t('character: '),
+    worldTag: vscode.l10n.t('world: '),
+    compendiumPrefix: vscode.l10n.t('compendium: '),
+    selectionTag: vscode.l10n.t('selection: '),
+    /** Display label when category matches workspace Characters (data may store English default). */
+    categoryCharacters: vscode.l10n.t('Characters'),
+    categoryWorld: vscode.l10n.t('World'),
+  };
+}
+
+function escapeForHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 }
 
 function mapChipsToStreamOptions(
   chips: WorkshopContextChip[]
-): Pick<api.WorkshopStreamOptions, 'sceneUuids' | 'compendiumExcerpts'> {
+): Pick<
+  api.WorkshopStreamOptions,
+  | 'sceneUuids'
+  | 'compendiumExcerpts'
+  | 'extraContext'
+  | 'selectionLabels'
+  | 'selectionAttachments'
+> {
   const sceneUuids: string[] = [];
   const compendiumExcerpts: api.CompendiumExcerptRef[] = [];
+  const selectionBlocks: string[] = [];
+  const attachmentDedup: api.SelectionAttachment[] = [];
+  const seenAtt = new Set<string>();
+  const pushAtt = (a: api.SelectionAttachment): void => {
+    const r = a.range_label ?? '';
+    const k =
+      a.kind === 'scene' && a.scene_uuid
+        ? `s:${a.scene_uuid}:${r}`
+        : a.kind === 'compendium' && a.compendium_category && a.compendium_name
+          ? `c:${a.compendium_category}:${a.compendium_name}:${r}`
+          : `f:${a.label}:${r}`;
+    if (seenAtt.has(k)) {
+      return;
+    }
+    seenAtt.add(k);
+    attachmentDedup.push(a);
+  };
+
   const charsCat = getCharactersCategoryName();
   const worldCat = getWorldCategoryName();
   for (const c of chips) {
@@ -84,11 +196,27 @@ function mapChipsToStreamOptions(
       compendiumExcerpts.push({ category: charsCat, name: c.name });
     } else if (c.kind === 'world') {
       compendiumExcerpts.push({ category: worldCat, name: c.name });
+    } else if (c.kind === 'selection') {
+      const head = c.attachment.range_label?.trim()
+        ? `### ${c.attachment.label} (${c.attachment.range_label.trim()})\n\n`
+        : `### ${c.attachment.label}\n\n`;
+      selectionBlocks.push(head + c.text);
+      pushAtt(c.attachment);
     }
   }
+  const extraContext =
+    selectionBlocks.length > 0 ? selectionBlocks.join('\n\n---\n\n') : undefined;
+  const selectionLabels = attachmentDedup.length
+    ? attachmentDedup.map((a) =>
+        a.range_label?.trim() ? `${a.label} · ${a.range_label.trim()}` : a.label
+      )
+    : undefined;
   return {
     sceneUuids: sceneUuids.length ? sceneUuids : undefined,
     compendiumExcerpts: compendiumExcerpts.length ? compendiumExcerpts : undefined,
+    extraContext,
+    selectionLabels,
+    selectionAttachments: attachmentDedup.length ? attachmentDedup : undefined,
   };
 }
 
@@ -127,12 +255,12 @@ async function pushWorkshopStateToWebview(
   let threads = await api.listWorkshopThreads(baseUrl, root);
   if (threads.length === 0) {
     const firstTitle = await vscode.window.showInputBox({
-      title: 'New thread',
-      prompt: 'Name your first conversation.',
-      placeHolder: 'e.g. Main workshop',
+      title: vscode.l10n.t('New thread'),
+      prompt: vscode.l10n.t('Name your first conversation.'),
+      placeHolder: vscode.l10n.t('e.g. Main workshop'),
       validateInput: (s) => {
         if (!s?.trim()) {
-          return 'Name cannot be empty.';
+          return vscode.l10n.t('Name cannot be empty.');
         }
         return undefined;
       },
@@ -173,10 +301,10 @@ async function pushBootstrapToWebview(webview: vscode.Webview): Promise<void> {
         scenes: [],
         characters: [],
         world: [],
-        charactersCategory: 'Characters',
-        worldCategory: 'World',
+        charactersCategory: getCharactersCategoryName(),
+        worldCategory: getWorldCategoryName(),
       },
-      error: 'Open a folder workspace to load project context.',
+      error: vscode.l10n.t('Open a folder workspace to load project context.'),
     });
     return;
   }
@@ -231,7 +359,8 @@ class WorkshopViewProvider implements vscode.WebviewViewProvider {
     const { webview } = webviewView;
     webview.options = { enableScripts: true };
     const nonce = getNonce();
-    webview.html = getWorkshopHtml(webview, nonce);
+    const docLang = (vscode.env.language || 'en').split(/[-_]/)[0] || 'en';
+    webview.html = getWorkshopHtml(webview, nonce, buildWorkshopWebviewStrings(), docLang);
 
     webview.onDidReceiveMessage(
       (msg: WorkshopFromWebview) => {
@@ -293,12 +422,12 @@ class WorkshopViewProvider implements vscode.WebviewViewProvider {
         return;
       }
       const title = await vscode.window.showInputBox({
-        title: 'New thread',
-        prompt: 'Name this conversation.',
-        placeHolder: 'e.g. Character — Ethan',
+        title: vscode.l10n.t('New thread'),
+        prompt: vscode.l10n.t('Name this conversation.'),
+        placeHolder: vscode.l10n.t('e.g. Character — Ethan'),
         validateInput: (s) => {
           if (!s?.trim()) {
-            return 'Name cannot be empty.';
+            return vscode.l10n.t('Name cannot be empty.');
           }
           return undefined;
         },
@@ -313,7 +442,9 @@ class WorkshopViewProvider implements vscode.WebviewViewProvider {
         await this.pushWorkshopState(webview);
       } catch (e) {
         const err = e instanceof Error ? e.message : String(e);
-        void vscode.window.showErrorMessage(`AuthorKit: could not create thread — ${err}`);
+        void vscode.window.showErrorMessage(
+          vscode.l10n.t('AuthorKit: could not create thread — {0}', err)
+        );
       }
       return;
     }
@@ -326,12 +457,12 @@ class WorkshopViewProvider implements vscode.WebviewViewProvider {
       const threads = await api.listWorkshopThreads(baseUrl, root);
       const current = threads.find((x) => x.thread_id === msg.threadId);
       const picked = await vscode.window.showInputBox({
-        title: 'Rename thread',
-        prompt: 'Display name in the thread list.',
+        title: vscode.l10n.t('Rename thread'),
+        prompt: vscode.l10n.t('Display name in the thread list.'),
         value: current?.title ?? '',
         validateInput: (s) => {
           if (!s?.trim()) {
-            return 'Name cannot be empty.';
+            return vscode.l10n.t('Name cannot be empty.');
           }
           return undefined;
         },
@@ -344,7 +475,9 @@ class WorkshopViewProvider implements vscode.WebviewViewProvider {
         await this.pushWorkshopState(webview);
       } catch (e) {
         const err = e instanceof Error ? e.message : String(e);
-        void vscode.window.showErrorMessage(`AuthorKit: could not rename thread — ${err}`);
+        void vscode.window.showErrorMessage(
+          vscode.l10n.t('AuthorKit: could not rename thread — {0}', err)
+        );
       }
       return;
     }
@@ -357,19 +490,27 @@ class WorkshopViewProvider implements vscode.WebviewViewProvider {
       const threads = await api.listWorkshopThreads(baseUrl, root);
       const thread = threads.find((x) => x.thread_id === msg.threadId);
       const label = thread?.title?.trim() || msg.threadId.slice(0, 8) + '…';
+      const delBtn = vscode.l10n.t('Delete');
       const confirm = await vscode.window.showWarningMessage(
-        `Delete thread "${label}"?`,
-        { modal: true, detail: 'All messages in this thread will be removed. This cannot be undone.' },
-        'Delete'
+        vscode.l10n.t('Delete thread \u201c{0}\u201d?', label),
+        {
+          modal: true,
+          detail: vscode.l10n.t(
+            'All messages in this thread will be removed. This cannot be undone.'
+          ),
+        },
+        delBtn
       );
-      if (confirm !== 'Delete') {
+      if (confirm !== delBtn) {
         return;
       }
       try {
         await api.deleteWorkshopThread(baseUrl, root, msg.threadId);
       } catch (e) {
         const err = e instanceof Error ? e.message : String(e);
-        void vscode.window.showErrorMessage(`AuthorKit: could not delete thread — ${err}`);
+        void vscode.window.showErrorMessage(
+          vscode.l10n.t('AuthorKit: could not delete thread — {0}', err)
+        );
         return;
       }
       const key = threadStateKey(root);
@@ -400,13 +541,16 @@ class WorkshopViewProvider implements vscode.WebviewViewProvider {
     if (!root) {
       void webview.postMessage({
         type: 'error',
-        text: 'Open a folder workspace to use the workshop.',
+        text: vscode.l10n.t('Open a folder workspace to use the workshop.'),
       });
       return;
     }
     const active = this.context.workspaceState.get<string>(threadStateKey(root));
     if (!active) {
-      void webview.postMessage({ type: 'error', text: 'No thread selected. Create a thread first.' });
+      void webview.postMessage({
+        type: 'error',
+        text: vscode.l10n.t('No thread selected. Create a thread first.'),
+      });
       return;
     }
 
@@ -417,6 +561,7 @@ class WorkshopViewProvider implements vscode.WebviewViewProvider {
     const llm: api.WorkshopStreamOptions = {
       ...getWorkshopLlmOptions(),
       threadId: active,
+      userLanguage: vscode.env.language,
       ...mapChipsToStreamOptions(chips),
     };
 
@@ -476,15 +621,21 @@ export function openWorkshopChatPanel(context: vscode.ExtensionContext, options?
   }, 120);
 }
 
-function getWorkshopHtml(webview: vscode.Webview, nonce: string): string {
+function getWorkshopHtml(
+  webview: vscode.Webview,
+  nonce: string,
+  str: Record<string, string>,
+  documentLang: string
+): string {
   const csp = [
     `default-src 'none'`,
     `style-src ${webview.cspSource} 'unsafe-inline'`,
     `script-src 'nonce-${nonce}'`,
   ].join('; ');
+  const strJson = JSON.stringify(str).replace(/</g, '\\u003c');
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${escapeForHtml(documentLang)}">
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="${csp}" />
@@ -865,16 +1016,17 @@ function getWorkshopHtml(webview: vscode.Webview, nonce: string): string {
   </style>
 </head>
 <body>
+  <script nonce="${nonce}">const STR = ${strJson};</script>
   <header class="thread-strip">
-    <label for="threadSelect">Thread</label>
-    <select id="threadSelect" aria-label="Active thread"></select>
-    <button type="button" class="thread-icon-btn" id="newThread" title="New thread" aria-label="New thread">
+    <label for="threadSelect">${escapeForHtml(str.thread)}</label>
+    <select id="threadSelect" aria-label="${escapeForHtml(str.ariaActiveThread)}"></select>
+    <button type="button" class="thread-icon-btn" id="newThread" title="${escapeForHtml(str.newThread)}" aria-label="${escapeForHtml(str.newThread)}">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
     </button>
-    <button type="button" class="thread-icon-btn" id="renameThread" title="Rename thread" aria-label="Rename thread">
+    <button type="button" class="thread-icon-btn" id="renameThread" title="${escapeForHtml(str.renameThread)}" aria-label="${escapeForHtml(str.renameThread)}">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
     </button>
-    <button type="button" class="thread-icon-btn danger" id="delThread" title="Delete thread" aria-label="Delete thread">
+    <button type="button" class="thread-icon-btn danger" id="delThread" title="${escapeForHtml(str.deleteThread)}" aria-label="${escapeForHtml(str.deleteThread)}">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/><path d="M10 11v6M14 11v6"/></svg>
     </button>
   </header>
@@ -882,37 +1034,37 @@ function getWorkshopHtml(webview: vscode.Webview, nonce: string): string {
   <footer class="composer-dock">
     <div class="composer-card">
       <div class="ctx-toolbar">
-        <span class="ctx-toolbar-label">Context</span>
+        <span class="ctx-toolbar-label">${escapeForHtml(str.context)}</span>
         <div class="ctx-menus">
           <details class="ctx-drop" id="menuScene">
-            <summary class="ctx-icon-btn" title="Add scene">
+            <summary class="ctx-icon-btn" title="${escapeForHtml(str.addScene)}">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h3l1.5-2h2L14 10h4"/></svg>
             </summary>
             <ul class="ctx-list" id="listScene"></ul>
           </details>
           <details class="ctx-drop" id="menuChar">
-            <summary class="ctx-icon-btn" title="Add character">
+            <summary class="ctx-icon-btn" title="${escapeForHtml(str.addCharacter)}">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20v-1a5 5 0 015-5h4a5 5 0 015 5v1"/></svg>
             </summary>
             <ul class="ctx-list" id="listChar"></ul>
           </details>
           <details class="ctx-drop" id="menuWorld">
-            <summary class="ctx-icon-btn" title="Add world entry">
+            <summary class="ctx-icon-btn" title="${escapeForHtml(str.addWorldEntry)}">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a14 14 0 010 20M12 2a14 14 0 000 20"/></svg>
             </summary>
             <ul class="ctx-list" id="listWorld"></ul>
           </details>
         </div>
-        <button type="button" class="ctx-refresh" id="refresh" title="Reload lists">↻</button>
+        <button type="button" class="ctx-refresh" id="refresh" title="${escapeForHtml(str.reloadLists)}">↻</button>
       </div>
-      <div class="chips" id="chips" aria-label="Context tags"></div>
+      <div class="chips" id="chips" aria-label="${escapeForHtml(str.contextTagsAria)}"></div>
       <div class="input-row">
-        <textarea id="input" placeholder="Message… (⌃/⌘+Enter)" rows="2"></textarea>
+        <textarea id="input" placeholder="${escapeForHtml(str.messagePlaceholder)}" rows="2"></textarea>
         <div class="actions">
-          <button type="button" class="icon-action" id="send" title="Send" aria-label="Send">
+          <button type="button" class="icon-action" id="send" title="${escapeForHtml(str.sendTitle)}" aria-label="${escapeForHtml(str.sendAria)}">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>
           </button>
-          <button type="button" class="icon-action" id="stop" hidden title="Stop" aria-label="Stop">
+          <button type="button" class="icon-action" id="stop" hidden title="${escapeForHtml(str.stopTitle)}" aria-label="${escapeForHtml(str.stopAria)}">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
           </button>
         </div>
@@ -941,6 +1093,7 @@ function getWorkshopHtml(webview: vscode.Webview, nonce: string): string {
     const ICON_SCENE = '<svg class="chip-ic" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h3l1.5-2h2L14 10h4"/></svg>';
     const ICON_CHAR = '<svg class="chip-ic" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="3"/><path d="M5 20v-1a5 5 0 015-5h4a5 5 0 015 5v1"/></svg>';
     const ICON_WORLD = '<svg class="chip-ic" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/></svg>';
+    const ICON_SELECTION = '<svg class="chip-ic" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h10M4 12h16M4 17h8"/></svg>';
 
     let bootstrap = { scenes: [], characters: [], world: [], charactersCategory: 'Characters', worldCategory: 'World' };
     /** @type {Array<{kind:string, uuid?:string, label?:string, name?:string}>} */
@@ -949,6 +1102,17 @@ function getWorkshopHtml(webview: vscode.Webview, nonce: string): string {
 
     function chipKey(c) {
       if (c.kind === 'scene') return 'scene:' + c.uuid;
+      if (c.kind === 'selection') {
+        var a = c.attachment || {};
+        return (
+          'selection:' +
+          (a.scene_uuid || a.compendium_category || '') +
+          ':' +
+          (a.range_label || '') +
+          ':' +
+          String(c.text || '').slice(0, 32)
+        );
+      }
       return c.kind + ':' + c.name;
     }
 
@@ -986,7 +1150,7 @@ function getWorkshopHtml(webview: vscode.Webview, nonce: string): string {
       listChar.innerHTML = '';
       listWorld.innerHTML = '';
       if (!bootstrap.scenes.length) {
-        listScene.innerHTML = '<li class="ctx-list-empty">No scenes in structure</li>';
+        listScene.innerHTML = '<li class="ctx-list-empty">' + STR.noScenesInStructure + '</li>';
       } else {
         bootstrap.scenes.forEach(function (s) {
           const li = document.createElement('li');
@@ -1003,7 +1167,7 @@ function getWorkshopHtml(webview: vscode.Webview, nonce: string): string {
         });
       }
       if (!bootstrap.characters.length) {
-        listChar.innerHTML = '<li class="ctx-list-empty">No characters</li>';
+        listChar.innerHTML = '<li class="ctx-list-empty">' + STR.noCharacters + '</li>';
       } else {
         bootstrap.characters.forEach(function (c) {
           const li = document.createElement('li');
@@ -1020,7 +1184,7 @@ function getWorkshopHtml(webview: vscode.Webview, nonce: string): string {
         });
       }
       if (!bootstrap.world.length) {
-        listWorld.innerHTML = '<li class="ctx-list-empty">No world entries</li>';
+        listWorld.innerHTML = '<li class="ctx-list-empty">' + STR.noWorldEntries + '</li>';
       } else {
         bootstrap.world.forEach(function (c) {
           const li = document.createElement('li');
@@ -1043,13 +1207,30 @@ function getWorkshopHtml(webview: vscode.Webview, nonce: string): string {
       chips.forEach(function (c, idx) {
         const span = document.createElement('span');
         span.className = 'chip';
-        const lab = c.kind === 'scene' ? (c.label || c.uuid) : c.name;
-        const ic = c.kind === 'scene' ? ICON_SCENE : c.kind === 'character' ? ICON_CHAR : ICON_WORLD;
+        var lab;
+        var ic;
+        if (c.kind === 'scene') {
+          lab = c.label || c.uuid;
+          ic = ICON_SCENE;
+        } else if (c.kind === 'character') {
+          lab = c.name;
+          ic = ICON_CHAR;
+        } else if (c.kind === 'world') {
+          lab = c.name;
+          ic = ICON_WORLD;
+        } else {
+          var att = c.attachment || {};
+          lab = (att.label || '') + (att.range_label ? ' · ' + att.range_label : '');
+          ic = ICON_SELECTION;
+        }
+        if (c.kind === 'selection' && c.detailTitle) {
+          span.title = c.detailTitle;
+        }
         span.insertAdjacentHTML('afterbegin', ic);
         span.appendChild(document.createTextNode(' ' + lab));
         const x = document.createElement('button');
         x.type = 'button';
-        x.setAttribute('aria-label', 'Remove');
+        x.setAttribute('aria-label', STR.removeChipAria);
         x.textContent = '×';
         x.addEventListener('click', function () {
           chips = chips.filter(function (_, i) { return i !== idx; });
@@ -1071,11 +1252,25 @@ function getWorkshopHtml(webview: vscode.Webview, nonce: string): string {
       return uuid.slice(0, 8);
     }
 
+    /** Localized category for UI when data uses default English names; custom names stay as-is. */
+    function localizedCompendiumCategoryLabel(cat) {
+      if (!cat) return '';
+      var ch = bootstrap && bootstrap.charactersCategory;
+      var wo = bootstrap && bootstrap.worldCategory;
+      if (ch && cat === ch) {
+        return cat === 'Characters' ? STR.categoryCharacters : cat;
+      }
+      if (wo && cat === wo) {
+        return cat === 'World' ? STR.categoryWorld : cat;
+      }
+      return cat;
+    }
+
     function tagLineFromApiContext(ctx) {
       if (!ctx) return '';
       var parts = [];
       (ctx.scene_uuids || []).forEach(function (u) {
-        if (u) parts.push('scene: ' + sceneLabelFromBootstrap(String(u)));
+        if (u) parts.push(STR.sceneTag + sceneLabelFromBootstrap(String(u)));
       });
       (ctx.compendium_excerpts || []).forEach(function (ex) {
         if (!ex) return;
@@ -1083,27 +1278,54 @@ function getWorkshopHtml(webview: vscode.Webview, nonce: string): string {
         var nm = ex.name || '';
         var ch = bootstrap && bootstrap.charactersCategory;
         var wo = bootstrap && bootstrap.worldCategory;
-        if (ch && cat === ch) parts.push('character: ' + nm);
-        else if (wo && cat === wo) parts.push('world: ' + nm);
-        else if (cat && nm) parts.push('compendium: ' + cat + ' / ' + nm);
+        if (ch && cat === ch) parts.push(STR.charTag + nm);
+        else if (wo && cat === wo) parts.push(STR.worldTag + nm);
+        else if (cat && nm) {
+          parts.push(STR.compendiumPrefix + localizedCompendiumCategoryLabel(cat) + ' / ' + nm);
+        }
       });
+      (ctx.selection_attachments || []).forEach(function (a) {
+        if (!a || !a.label) return;
+        var rng = a.range_label ? ' · ' + a.range_label : '';
+        if (a.kind === 'scene') parts.push(STR.sceneTag + a.label + rng);
+        else if (a.kind === 'compendium') {
+          var ccat = a.compendium_category || '';
+          var cnm = a.compendium_name || '';
+          var ch = bootstrap && bootstrap.charactersCategory;
+          var wo = bootstrap && bootstrap.worldCategory;
+          if (ch && ccat === ch) parts.push(STR.charTag + cnm + rng);
+          else if (wo && ccat === wo) parts.push(STR.worldTag + cnm + rng);
+          else if (ccat && cnm) {
+            parts.push(STR.compendiumPrefix + localizedCompendiumCategoryLabel(ccat) + ' / ' + cnm + rng);
+          }
+        } else {
+          parts.push(STR.selectionTag + a.label + rng);
+        }
+      });
+      if (!(ctx.selection_attachments || []).length) {
+        (ctx.selection_labels || []).forEach(function (lbl) {
+          if (lbl) parts.push(STR.selectionTag + lbl);
+        });
+      }
       return parts.join(' · ');
     }
 
     function appendAssistantActions(shell, prevUser, assistantText) {
       var ctx = prevUser && prevUser.role === 'user' ? prevUser.context : null;
-      var su = ctx && ctx.scene_uuids && ctx.scene_uuids.length;
-      var ce = ctx && ctx.compendium_excerpts && ctx.compendium_excerpts.length;
-      if (!su && !ce) return;
+      if (!ctx) return;
       var reply = assistantText != null ? String(assistantText) : '';
       var actions = document.createElement('div');
       actions.className = 'bubble-actions';
-      (ctx.scene_uuids || []).forEach(function (uid) {
-        if (!uid) return;
+      var seenScene = {};
+      var seenComp = {};
+
+      function addSceneBtn(uid) {
+        if (!uid || seenScene[uid]) return;
+        seenScene[uid] = 1;
         var b = document.createElement('button');
         b.type = 'button';
         b.className = 'bubble-action';
-        b.textContent = 'Insert into scene: ' + sceneLabelFromBootstrap(String(uid));
+        b.textContent = STR.insertScenePrefix + sceneLabelFromBootstrap(String(uid));
         b.addEventListener('click', function () {
           vscode.postMessage({
             type: 'workshopResponseAction',
@@ -1113,24 +1335,44 @@ function getWorkshopHtml(webview: vscode.Webview, nonce: string): string {
           });
         });
         actions.appendChild(b);
-      });
-      (ctx.compendium_excerpts || []).forEach(function (ex) {
-        if (!ex || !ex.category || !ex.name) return;
+      }
+      function addCompBtn(cat, name) {
+        if (!cat || !name) return;
+        var k = cat + '\0' + name;
+        if (seenComp[k]) return;
+        seenComp[k] = 1;
         var b = document.createElement('button');
         b.type = 'button';
         b.className = 'bubble-action';
-        b.textContent = 'Insert into: ' + ex.category + ' — ' + ex.name;
+        b.textContent =
+          STR.insertIntoPrefix + localizedCompendiumCategoryLabel(cat) + ' — ' + name;
         b.addEventListener('click', function () {
           vscode.postMessage({
             type: 'workshopResponseAction',
             action: 'insertCompendium',
-            compendiumCategory: String(ex.category),
-            compendiumName: String(ex.name),
+            compendiumCategory: String(cat),
+            compendiumName: String(name),
             assistantText: reply,
           });
         });
         actions.appendChild(b);
+      }
+
+      (ctx.scene_uuids || []).forEach(function (uid) {
+        addSceneBtn(uid ? String(uid) : '');
       });
+      (ctx.compendium_excerpts || []).forEach(function (ex) {
+        if (ex && ex.category && ex.name) addCompBtn(ex.category, ex.name);
+      });
+      (ctx.selection_attachments || []).forEach(function (a) {
+        if (!a) return;
+        if (a.kind === 'scene' && a.scene_uuid) addSceneBtn(String(a.scene_uuid));
+        if (a.kind === 'compendium' && a.compendium_category && a.compendium_name) {
+          addCompBtn(String(a.compendium_category), String(a.compendium_name));
+        }
+      });
+
+      if (!actions.children.length) return;
       shell.appendChild(actions);
     }
 
@@ -1144,7 +1386,7 @@ function getWorkshopHtml(webview: vscode.Webview, nonce: string): string {
         meta.className = 'bubble-meta';
         if (m.role === 'user') {
           const you = document.createElement('span');
-          you.textContent = 'You';
+          you.textContent = STR.you;
           meta.appendChild(you);
           var tl = tagLineFromApiContext(m.context);
           if (tl) {
@@ -1154,7 +1396,7 @@ function getWorkshopHtml(webview: vscode.Webview, nonce: string): string {
             meta.appendChild(tg);
           }
         } else {
-          meta.textContent = 'Workshop';
+          meta.textContent = STR.workshop;
         }
         const shell = document.createElement('div');
         shell.className = 'bubble-body';
@@ -1177,7 +1419,7 @@ function getWorkshopHtml(webview: vscode.Webview, nonce: string): string {
       (threads || []).forEach(function (t) {
         const o = document.createElement('option');
         o.value = t.thread_id;
-        const lab = t.title || 'Thread';
+        const lab = t.title || STR.thread;
         o.textContent = lab.length > 52 ? lab.slice(0, 50) + '…' : lab;
         o.title = lab;
         threadSelect.appendChild(o);
@@ -1211,7 +1453,7 @@ function getWorkshopHtml(webview: vscode.Webview, nonce: string): string {
       const meta = document.createElement('div');
       meta.className = 'bubble-meta';
       const you = document.createElement('span');
-      you.textContent = 'You';
+      you.textContent = STR.you;
       meta.appendChild(you);
       if (tagLine && String(tagLine).trim()) {
         const tg = document.createElement('span');
@@ -1236,7 +1478,7 @@ function getWorkshopHtml(webview: vscode.Webview, nonce: string): string {
       assistantEl.className = 'bubble assistant';
       const meta = document.createElement('div');
       meta.className = 'bubble-meta';
-      meta.textContent = 'Workshop';
+      meta.textContent = STR.workshop;
       const shell = document.createElement('div');
       shell.className = 'bubble-body';
       const body = document.createElement('div');
@@ -1259,7 +1501,7 @@ function getWorkshopHtml(webview: vscode.Webview, nonce: string): string {
       d.className = 'bubble error assistant';
       const meta = document.createElement('div');
       meta.className = 'bubble-meta';
-      meta.textContent = 'Error';
+      meta.textContent = STR.error;
       const shell = document.createElement('div');
       shell.className = 'bubble-body';
       const body = document.createElement('div');
@@ -1304,6 +1546,17 @@ function getWorkshopHtml(webview: vscode.Webview, nonce: string): string {
       } else if (p.mode === 'world' && p.entryName) {
         const c = { kind: 'world', name: p.entryName };
         if (!chips.some(function (x) { return chipKey(x) === chipKey(c); })) chips.push(c);
+      } else if (p.mode === 'selection' && Array.isArray(p.selectionItems) && p.selectionItems.length) {
+        p.selectionItems.forEach(function (item) {
+          if (!item || !String(item.text || '').trim() || !item.attachment) return;
+          const c = {
+            kind: 'selection',
+            text: String(item.text),
+            attachment: item.attachment,
+            detailTitle: item.detailTitle || '',
+          };
+          if (!chips.some(function (x) { return chipKey(x) === chipKey(c); })) chips.push(c);
+        });
       }
       renderChips();
     }
@@ -1313,7 +1566,7 @@ function getWorkshopHtml(webview: vscode.Webview, nonce: string): string {
       if (!m || typeof m.type !== 'string') return;
       if (m.type === 'bootstrap' && m.payload) {
         bootstrap = m.payload;
-        if (m.error) showError('Context: ' + m.error);
+        if (m.error) showError(STR.contextErrorPrefix + m.error);
         buildContextMenus();
         return;
       }
@@ -1347,6 +1600,9 @@ function getWorkshopHtml(webview: vscode.Webview, nonce: string): string {
       if (m.type === 'assistantEnd') {
         assistantEl = null;
         setBusy(false);
+        // Selection excerpts apply to one turn only; picker chips (scene / compendium) remain.
+        chips = chips.filter(function (c) { return c.kind !== 'selection'; });
+        renderChips();
         return;
       }
       if (m.type === 'error' && typeof m.text === 'string') {

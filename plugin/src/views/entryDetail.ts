@@ -25,7 +25,9 @@ export async function openEntryDetailPanel(
   const cat = data.categories?.find((c) => c.name === categoryName);
   const entry = cat?.entries?.find((e) => e.name === entryName);
   if (!entry) {
-    void vscode.window.showErrorMessage(`Entry “${entryName}” not found in ${categoryName}.`);
+    void vscode.window.showErrorMessage(
+      vscode.l10n.t('Entry \u201c{0}\u201d not found in {1}.', entryName, categoryName)
+    );
     return;
   }
 
@@ -51,7 +53,9 @@ export async function openEntryDetailPanel(
     { enableScripts: true, retainContextWhenHidden: true }
   );
 
-  panel.webview.html = getWebviewHtml(categoryName, entryName, entry.content);
+  panel.webview.html = getWebviewHtml(categoryName, entryName, entry.content, {
+    save: vscode.l10n.t('Save to compendium'),
+  });
 
   panel.webview.onDidReceiveMessage(
     async (msg: { type?: string; content?: string }) => {
@@ -63,15 +67,17 @@ export async function openEntryDetailPanel(
         const c = fresh.categories?.find((x) => x.name === categoryName);
         const e = c?.entries?.find((x) => x.name === entryName);
         if (!e) {
-          void vscode.window.showErrorMessage('Entry disappeared; refresh the tree.');
+          void vscode.window.showErrorMessage(
+            vscode.l10n.t('Entry disappeared; refresh the tree.')
+          );
           return;
         }
         e.content = msg.content;
         await api.putCompendium(baseUrl, root, fresh);
-        void vscode.window.showInformationMessage('Saved compendium entry.');
+        void vscode.window.showInformationMessage(vscode.l10n.t('Saved compendium entry.'));
       } catch (err) {
         const m = err instanceof Error ? err.message : String(err);
-        void vscode.window.showErrorMessage(`Save failed: ${m}`);
+        void vscode.window.showErrorMessage(vscode.l10n.t('Save failed: {0}', m));
       }
     },
     undefined,
@@ -79,7 +85,12 @@ export async function openEntryDetailPanel(
   );
 }
 
-function getWebviewHtml(categoryName: string, entryName: string, content: string): string {
+function getWebviewHtml(
+  categoryName: string,
+  entryName: string,
+  content: string,
+  labels: { save: string }
+): string {
   const esc = escapeHtml(content);
   return `<!DOCTYPE html>
 <html lang="en">
@@ -109,7 +120,7 @@ function getWebviewHtml(categoryName: string, entryName: string, content: string
   <div class="meta">${escapeHtml(categoryName)}</div>
   <textarea id="body">${esc}</textarea>
   <div>
-    <button type="button" id="save">Save to compendium</button>
+    <button type="button" id="save">${escapeHtml(labels.save)}</button>
   </div>
   <script>
     (function() {

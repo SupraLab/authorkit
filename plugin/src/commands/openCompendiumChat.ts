@@ -33,7 +33,9 @@ export async function openCompendiumChatFromTreeItem(
   }
   const root = getWorkspaceRoot();
   if (!root) {
-    void vscode.window.showWarningMessage('Open a folder workspace to use the Workshop.');
+    void vscode.window.showWarningMessage(
+      vscode.l10n.t('Open a folder workspace to use the Workshop.')
+    );
     return;
   }
   const chars = getCharactersCategoryName();
@@ -47,7 +49,7 @@ export async function openCompendiumChatFromTreeItem(
     apply = { mode: 'world', entryName: item.entryName, sheetRel: rel };
   } else {
     void vscode.window.showInformationMessage(
-      'Workshop context is only wired for Characters and World entries.'
+      vscode.l10n.t('Workshop context is only wired for Characters and World entries.')
     );
     return;
   }

@@ -9,14 +9,38 @@ FastAPI service for the **AuthorKit** writing assistant. The **VS Code workspace
 
 ```bash
 cd api
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
+python -m pip install -U pip
+python -m pip install -e ".[dev]"
 uvicorn author_kit.main:app --reload --host 127.0.0.1 --port 8765
+```
+
+After `activate`, check that installs go into the venv (first line should contain `.venv`):
+
+```bash
+python -c "import sys; print(sys.prefix)"
 ```
 
 - **Swagger UI:** http://127.0.0.1:8765/docs  
 - **OpenAPI JSON:** http://127.0.0.1:8765/openapi.json  
+
+### Pip warnings (`botocore`, `urllib3`, “packages that are installed”)
+
+AuthorKit does not depend on **botocore** / AWS SDK. If pip reports a conflict between **botocore** and **urllib3**, another package in the *same* environment (often an old **boto3** / AWS CLI stack) expects `urllib3<2.1`, while this project pulls **urllib3 2.x** via **requests**. That usually means the install did not run only inside `.venv` (e.g. `pip` pointed at Homebrew/user site-packages), or the venv was created with access to system packages.
+
+**Fix:** remove and recreate an isolated venv, and always use **`python -m pip`** after `activate`:
+
+```bash
+cd api
+rm -rf .venv
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -U pip
+python -m pip install -e ".[dev]"
+```
+
+If you deliberately share one environment with AWS tools, upgrade **botocore** / **boto3** to releases that support **urllib3 2.x**, or keep AuthorKit in its own venv.
 
 ## Persistence & on-disk model
 

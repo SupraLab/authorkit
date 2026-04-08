@@ -7,10 +7,25 @@ export interface CompendiumExcerptRef {
   name: string;
 }
 
+/** Mirrors API `SelectionAttachment`; editor selection resolved to scene / compendium / file. */
+export interface SelectionAttachment {
+  label: string;
+  kind: 'scene' | 'compendium' | 'file';
+  scene_uuid?: string;
+  compendium_category?: string;
+  compendium_name?: string;
+  /** Lines + document char offsets, shown on chips and in thread tags. */
+  range_label?: string;
+}
+
 /** Mirrors API `WorkshopMessageContext`; persisted on user turns. */
 export interface WorkshopMessageContext {
   scene_uuids?: string[];
   compendium_excerpts?: CompendiumExcerptRef[];
+  /** Short labels for editor selection context (full text is not stored server-side). */
+  selection_labels?: string[];
+  /** Structured selection targets for tags and insert actions. */
+  selection_attachments?: SelectionAttachment[];
 }
 
 export interface ChatMessage {
@@ -165,6 +180,14 @@ export interface WorkshopStreamOptions {
   threadId?: string;
   sceneUuids?: string[];
   compendiumExcerpts?: CompendiumExcerptRef[];
+  /** Merged by the API with scene/compendium blocks into the model prompt. */
+  extraContext?: string;
+  /** Persisted on the user message for thread UI (labels only). */
+  selectionLabels?: string[];
+  /** Persisted structured targets (insert + display). */
+  selectionAttachments?: SelectionAttachment[];
+  /** VS Code UI language (e.g. `fr`, `en`) to reinforce reply language on the API. */
+  userLanguage?: string;
 }
 
 export async function listWorkshopThreads(
@@ -257,6 +280,18 @@ export async function* workshopChatStream(
   }
   if (streamOpts?.compendiumExcerpts?.length) {
     body.compendium_excerpts = streamOpts.compendiumExcerpts;
+  }
+  if (streamOpts?.extraContext?.trim()) {
+    body.extra_context = streamOpts.extraContext.trim();
+  }
+  if (streamOpts?.selectionLabels?.length) {
+    body.selection_labels = streamOpts.selectionLabels;
+  }
+  if (streamOpts?.selectionAttachments?.length) {
+    body.selection_attachments = streamOpts.selectionAttachments;
+  }
+  if (streamOpts?.userLanguage?.trim()) {
+    body.user_language = streamOpts.userLanguage.trim();
   }
   const res = await fetch(`${baseUrl}/v1/workshop/chat/stream`, {
     method: 'POST',

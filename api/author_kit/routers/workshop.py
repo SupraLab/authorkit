@@ -151,11 +151,18 @@ def _refresh_thread_summary(
 
 
 def _context_json_for_persist(req: WorkshopChatRequest) -> Optional[str]:
-    if not req.scene_uuids and not req.compendium_excerpts:
+    if (
+        not req.scene_uuids
+        and not req.compendium_excerpts
+        and not req.selection_labels
+        and not req.selection_attachments
+    ):
         return None
     payload = WorkshopMessageContext(
         scene_uuids=list(req.scene_uuids or []),
         compendium_excerpts=list(req.compendium_excerpts or []),
+        selection_labels=list(req.selection_labels or []),
+        selection_attachments=list(req.selection_attachments or []),
     )
     return json.dumps(payload.model_dump())
 
@@ -288,11 +295,16 @@ def workshop_chat(
         raise HTTPException(status_code=400, detail="workspace_root required when thread_id is set")
 
     extra = _merged_extra_context(ws, req)
+    selection_scope = bool(req.selection_labels) or bool(req.selection_attachments)
+    has_ref_material = bool(req.scene_uuids) or bool(req.compendium_excerpts)
     augmented = build_augmented_user_content(
         req.user_message,
         extra_context=extra,
         use_rag=req.use_rag,
         workspace_root=ws,
+        selection_scope_reply=selection_scope,
+        selection_with_reference_material=selection_scope and has_ref_material,
+        user_language=req.user_language,
     )
 
     prior: Optional[List[dict]] = None
@@ -352,11 +364,16 @@ def _workshop_sse(
         yield f'data: {json.dumps({"error": e.detail})}\n\n'.encode()
         return
 
+    selection_scope = bool(req.selection_labels) or bool(req.selection_attachments)
+    has_ref_material = bool(req.scene_uuids) or bool(req.compendium_excerpts)
     augmented = build_augmented_user_content(
         req.user_message,
         extra_context=extra,
         use_rag=req.use_rag,
         workspace_root=ws,
+        selection_scope_reply=selection_scope,
+        selection_with_reference_material=selection_scope and has_ref_material,
+        user_language=req.user_language,
     )
 
     prior: Optional[List[dict]] = None

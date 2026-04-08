@@ -26,20 +26,26 @@ export async function initWorkspace(refreshTrees: () => void): Promise<void> {
   }
 
   if (hasStructure) {
+    const replaceBtn = vscode.l10n.t('Replace');
+    const cancelBtn = vscode.l10n.t('Cancel');
     const pick = await vscode.window.showWarningMessage(
-      'This folder already has an AuthorKit project (.authorkit/structure.json). Replace the outline and compendium with fresh defaults?',
+      vscode.l10n.t(
+        'This folder already has an AuthorKit project (.authorkit/structure.json). Replace the outline and compendium with fresh defaults?'
+      ),
       { modal: true },
-      'Replace',
-      'Cancel'
+      replaceBtn,
+      cancelBtn
     );
-    if (pick !== 'Replace') {
+    if (pick !== replaceBtn) {
       return;
     }
     try {
       await fs.unlink(structurePath);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      void vscode.window.showErrorMessage(`Could not remove structure file: ${msg}`);
+      void vscode.window.showErrorMessage(
+        vscode.l10n.t('Could not remove structure file: {0}', msg)
+      );
       return;
     }
     try {
@@ -63,14 +69,14 @@ export async function initWorkspace(refreshTrees: () => void): Promise<void> {
       ],
     });
     void vscode.window.showInformationMessage(
-      'AuthorKit project files are ready in this folder (.authorkit).'
+      vscode.l10n.t('AuthorKit project files are ready in this folder (.authorkit).')
     );
     refreshTrees();
     await updateAuthorkitProjectContext();
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     void vscode.window.showErrorMessage(
-      `Initialize failed (is the API running at ${baseUrl}?): ${msg}`
+      vscode.l10n.t('Initialize failed (is the API running at {0}?): {1}', baseUrl, msg)
     );
   }
 }
