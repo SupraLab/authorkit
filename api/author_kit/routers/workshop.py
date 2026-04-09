@@ -3,15 +3,13 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
-from author_kit.core import compendium_store
-from author_kit.core import scene_store
-from author_kit.core import workshop_store
+from author_kit.core import compendium_store, scene_store, workshop_store
 from author_kit.core.llm_aggregator import LLMAPIAggregator
 from author_kit.deps import get_aggregator
 from author_kit.schemas import (
@@ -43,13 +41,13 @@ def _overrides(req: WorkshopChatRequest) -> dict:
 
 def _summarize_message_block(
     agg: LLMAPIAggregator,
-    messages: List[dict],
+    messages: list[dict],
     overrides: dict,
     max_tokens: int = 500,
 ) -> str:
     if not messages:
         return ""
-    lines = [f'{m["role"]}: {m["content"]}' for m in messages]
+    lines = [f"{m['role']}: {m['content']}" for m in messages]
     conversation_text = "\n".join(lines)
     final_prompt = (
         f"Summarize the following conversation in up to {max_tokens} tokens. "
@@ -61,10 +59,10 @@ def _summarize_message_block(
     return agg.send_prompt_to_llm(final_prompt, overrides=o or None)
 
 
-def _scene_context_blocks(workspace_root: Path, scene_uuids: List[str]) -> Optional[str]:
+def _scene_context_blocks(workspace_root: Path, scene_uuids: list[str]) -> str | None:
     if not scene_uuids:
         return None
-    parts: List[str] = []
+    parts: list[str] = []
     for uid in scene_uuids:
         uid = uid.strip()
         if not uid:
@@ -80,8 +78,8 @@ def _scene_context_blocks(workspace_root: Path, scene_uuids: List[str]) -> Optio
     return "Referenced scenes:\n\n" + "\n\n---\n\n".join(parts)
 
 
-def _merged_extra_context(ws: Optional[Path], req: WorkshopChatRequest) -> Optional[str]:
-    parts: List[str] = []
+def _merged_extra_context(ws: Path | None, req: WorkshopChatRequest) -> str | None:
+    parts: list[str] = []
     if req.extra_context:
         parts.append(req.extra_context)
     if req.scene_uuids and ws is not None:
@@ -104,13 +102,13 @@ def _build_prior_from_thread(
     thread_id: str,
     req: WorkshopChatRequest,
     agg: LLMAPIAggregator,
-) -> Optional[List[dict]]:
+) -> list[dict] | None:
     row = workshop_store.get_thread(workspace_root, thread_id)
     if row is None:
         raise HTTPException(status_code=404, detail="thread not found")
     stored = workshop_store.list_messages(workspace_root, thread_id)
     overrides = _overrides(req)
-    prior: List[dict] = []
+    prior: list[dict] = []
 
     if len(stored) <= HOT_MESSAGE_COUNT:
         if req.system_prompt:
@@ -124,7 +122,7 @@ def _build_prior_from_thread(
         old = stored[:-HOT_MESSAGE_COUNT]
         summary_text = _summarize_message_block(agg, old, overrides)
 
-    sys_parts: List[str] = []
+    sys_parts: list[str] = []
     if req.system_prompt:
         sys_parts.append(req.system_prompt)
     sys_parts.append("Summary of earlier messages:\n" + summary_text)
@@ -150,7 +148,7 @@ def _refresh_thread_summary(
     workshop_store.update_rolling_summary(workspace_root, thread_id, summary_text)
 
 
-def _context_json_for_persist(req: WorkshopChatRequest) -> Optional[str]:
+def _context_json_for_persist(req: WorkshopChatRequest) -> str | None:
     if (
         not req.scene_uuids
         and not req.compendium_excerpts
@@ -167,7 +165,7 @@ def _context_json_for_persist(req: WorkshopChatRequest) -> Optional[str]:
     return json.dumps(payload.model_dump())
 
 
-def _resolve_workspace(req: WorkshopChatRequest) -> Optional[Path]:
+def _resolve_workspace(req: WorkshopChatRequest) -> Path | None:
     if not req.workspace_root:
         return None
     ws = Path(req.workspace_root).expanduser().resolve()
@@ -176,10 +174,10 @@ def _resolve_workspace(req: WorkshopChatRequest) -> Optional[Path]:
     return ws
 
 
-@router.get("/v1/workshop/threads", response_model=List[WorkshopThreadOut])
+@router.get("/v1/workshop/threads", response_model=list[WorkshopThreadOut])
 def list_workshop_threads(
     workspace_root: str = Query(..., description="Absolute workspace path"),
-) -> List[WorkshopThreadOut]:
+) -> list[WorkshopThreadOut]:
     ws = Path(workspace_root).expanduser().resolve()
     if not ws.is_dir():
         raise HTTPException(status_code=400, detail="invalid workspace_root")
@@ -307,7 +305,7 @@ def workshop_chat(
         user_language=req.user_language,
     )
 
-    prior: Optional[List[dict]] = None
+    prior: list[dict] | None = None
     if req.thread_id and ws is not None:
         prior = _build_prior_from_thread(ws, req.thread_id, req, agg)
     elif req.conversation_history:
@@ -361,7 +359,7 @@ def _workshop_sse(
     try:
         extra = _merged_extra_context(ws, req)
     except HTTPException as e:
-        yield f'data: {json.dumps({"error": e.detail})}\n\n'.encode()
+        yield f"data: {json.dumps({'error': e.detail})}\n\n".encode()
         return
 
     selection_scope = bool(req.selection_labels) or bool(req.selection_attachments)
@@ -376,12 +374,12 @@ def _workshop_sse(
         user_language=req.user_language,
     )
 
-    prior: Optional[List[dict]] = None
+    prior: list[dict] | None = None
     if req.thread_id and ws is not None:
         try:
             prior = _build_prior_from_thread(ws, req.thread_id, req, agg)
         except HTTPException as e:
-            yield f'data: {json.dumps({"error": e.detail})}\n\n'.encode()
+            yield f"data: {json.dumps({'error': e.detail})}\n\n".encode()
             return
     elif req.conversation_history:
         prior = []
@@ -392,7 +390,7 @@ def _workshop_sse(
     elif req.system_prompt:
         prior = [{"role": "system", "content": req.system_prompt}]
 
-    collected: List[str] = []
+    collected: list[str] = []
     try:
         for chunk in agg.stream_prompt_to_llm(
             augmented,

@@ -25,9 +25,7 @@ def test_structure_roundtrip(client, tmp_path: Path):
 
 def test_compendium_roundtrip(client, tmp_path: Path):
     root = str(tmp_path)
-    payload = {
-        "categories": [{"name": "People", "entries": [{"name": "Hero", "content": "A"}]}]
-    }
+    payload = {"categories": [{"name": "People", "entries": [{"name": "Hero", "content": "A"}]}]}
     r = client.put(
         "/v1/compendium",
         json={"workspace_root": root, "data": payload},

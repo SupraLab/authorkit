@@ -16,6 +16,8 @@ python -m pip install -e ".[dev]"
 uvicorn author_kit.main:app --reload --host 127.0.0.1 --port 8765
 ```
 
+Equivalent packaged entry (no reload): `python -m author_kit` or `author-kit-api` — host/port via **`AUTHORKIT_HOST`** / **`AUTHORKIT_PORT`** (defaults `127.0.0.1` / `8765`).
+
 After `activate`, check that installs go into the venv (first line should contain `.venv`):
 
 ```bash
@@ -41,6 +43,27 @@ python -m pip install -e ".[dev]"
 ```
 
 If you deliberately share one environment with AWS tools, upgrade **botocore** / **boto3** to releases that support **urllib3 2.x**, or keep AuthorKit in its own venv.
+
+## Standalone binary (PyInstaller)
+
+From `api/`, create a venv, install `".[dev]"`, then run the same script used in CI:
+
+```bash
+bash scripts/build-standalone.sh
+```
+
+This uses [`author-kit-api.spec`](author-kit-api.spec) and writes `dist/release/author-kit-api-<semver>-<platform>.zip`.  
+Release assets on GitHub use the same naming: **`author-kit-api-{version}-{platform}`** with platform `linux-x64`, `darwin-arm64`, `darwin-x64`, or `win-amd64`.  
+Set **`AUTHOR_KIT_PLATFORM`** to override triplet detection (CI sets this in the matrix).
+
+Inside each zip, the layout is a single folder **`author-kit-api/`** containing the executable (`author-kit-api`, or `author-kit-api.exe` on Windows) plus PyInstaller dependencies. The VS Code extension expects that layout when it extracts the archive.
+
+### GitHub Actions
+
+- **[`.github/workflows/ci.yml`](../.github/workflows/ci.yml)** — on every push/PR to `main` or `master`: install **`api/`** with dev extras, run **Ruff** (lint + format check), **pytest** (Python 3.10 and 3.12), and in **`plugin/`** run **ESLint**, **Vitest**, and **`tsc`** (`npm run compile`).
+- **[`.github/workflows/release-api-binaries.yml`](../.github/workflows/release-api-binaries.yml)** — on a tag **`v*`** (e.g. `v0.1.0`), builds **`author-kit-api-<semver>-<platform>.zip`** for each supported platform with **`scripts/build-standalone.sh`**, packages the VS Code extension as **`author-kit-<semver>.vsix`**, and uploads all assets to the **GitHub Release** for that tag (see the root [**README**](../README.md) for the end-user flow).
+
+Tag the same commit you ship: the **semver** inside [`pyproject.toml`](pyproject.toml) should match the tag (without the leading `v` in the file).
 
 ## Persistence & on-disk model
 
@@ -97,8 +120,16 @@ Workshop **history for the LLM** uses stored `role` + `content` only; persisted 
 | GET | `/v1/rag/status` | Index presence. |
 | POST | `/v1/conversation/summarize` | LLM summary of a message list. |
 
-## Tests
+## Tests and lint (local)
+
+Same commands as CI:
 
 ```bash
+cd api
+source .venv/bin/activate   # or Windows Scripts\activate
+ruff check .
+ruff format --check .
 pytest tests/ -q
 ```
+
+With dev dependencies installed (`pip install -e ".[dev]"`).

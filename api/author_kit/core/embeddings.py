@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Callable, Tuple
+from collections.abc import Callable
 
 import numpy as np
 import tiktoken
@@ -22,7 +22,7 @@ def _tiktoken_embed(text: str) -> np.ndarray:
     return vector
 
 
-def get_embedding_fn(backend: str) -> Tuple[int, Callable[[str], np.ndarray]]:
+def get_embedding_fn(backend: str) -> tuple[int, Callable[[str], np.ndarray]]:
     """Return (vector_dim, embed_fn)."""
     b = backend.lower().strip()
     if b == "openai":

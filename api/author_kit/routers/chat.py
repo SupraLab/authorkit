@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import json
-from typing import Iterator, List, Optional
+from collections.abc import Iterator
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
-from author_kit.deps import get_aggregator
 from author_kit.core.llm_aggregator import LLMAPIAggregator
+from author_kit.deps import get_aggregator
 from author_kit.schemas import ChatRequest, ChatResponse
 
 router = APIRouter(tags=["chat"])
@@ -41,7 +41,7 @@ def chat_completion(
     last = messages[-1]
     if last.get("role") != "user":
         raise HTTPException(status_code=400, detail="last message must have role user")
-    prior: Optional[List[dict]] = messages[:-1] if len(messages) > 1 else None
+    prior: list[dict] | None = messages[:-1] if len(messages) > 1 else None
     overrides = _overrides_from_request(req)
     text = agg.send_prompt_to_llm(
         last["content"],
@@ -54,11 +54,11 @@ def chat_completion(
 def _sse_chunks(agg: LLMAPIAggregator, req: ChatRequest) -> Iterator[bytes]:
     messages = [{"role": m.role, "content": m.content} for m in req.messages]
     if not messages:
-        yield b"data: {\"error\":\"empty messages\"}\n\n"
+        yield b'data: {"error":"empty messages"}\n\n'
         return
     last = messages[-1]
     if last.get("role") != "user":
-        yield b"data: {\"error\":\"last message must be user\"}\n\n"
+        yield b'data: {"error":"last message must be user"}\n\n'
         return
     prior = messages[:-1] if len(messages) > 1 else None
     overrides = _overrides_from_request(req)

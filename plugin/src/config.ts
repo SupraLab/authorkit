@@ -1,10 +1,44 @@
 import * as vscode from 'vscode';
 
+import {
+  localApiHttpBase,
+  normalizeLocalApiPort,
+  resolveApiBaseUrl,
+  workshopLlmOptionsFromStrings,
+} from './configLogic';
+
 const SECTION = 'authorkit';
 
+export function getStartLocalApi(): boolean {
+  return vscode.workspace.getConfiguration(SECTION).get<boolean>('startLocalApi') ?? false;
+}
+
+export function getLocalApiPort(): number {
+  return normalizeLocalApiPort(vscode.workspace.getConfiguration(SECTION).get<number>('localApiPort'));
+}
+
+export function getLocalApiBinaryPath(): string {
+  return vscode.workspace.getConfiguration(SECTION).get<string>('localApiBinaryPath')?.trim() ?? '';
+}
+
+/** Optional override for GitHub release tag (e.g. `v0.1.0`). Empty = use `bundledApiVersion` from package.json. */
+export function getGithubApiReleaseTag(): string {
+  return vscode.workspace.getConfiguration(SECTION).get<string>('githubApiReleaseTag')?.trim() ?? '';
+}
+
+/** Base URL when **Start local API** is on (`127.0.0.1` + configured port). */
+export function localApiBaseUrl(): string {
+  const cfg = vscode.workspace.getConfiguration(SECTION);
+  return localApiHttpBase(normalizeLocalApiPort(cfg.get<number>('localApiPort')));
+}
+
 export function getApiBaseUrl(): string {
-  const v = vscode.workspace.getConfiguration(SECTION).get<string>('apiBaseUrl');
-  return (v || 'http://127.0.0.1:8765').replace(/\/$/, '');
+  const cfg = vscode.workspace.getConfiguration(SECTION);
+  return resolveApiBaseUrl({
+    startLocalApi: cfg.get<boolean>('startLocalApi') ?? false,
+    localApiPort: cfg.get<number>('localApiPort'),
+    apiBaseUrl: cfg.get<string>('apiBaseUrl'),
+  });
 }
 
 export function getCharactersCategoryName(): string {
@@ -45,14 +79,8 @@ export function requireWorkspaceRoot(): string {
  */
 export function getWorkshopLlmOptions(): { provider?: string; model?: string } {
   const cfg = vscode.workspace.getConfiguration(SECTION);
-  const profile = cfg.get<string>('activeLlmProfile')?.trim();
-  const model = cfg.get<string>('workshopModelOverride')?.trim();
-  const o: { provider?: string; model?: string } = {};
-  if (profile) {
-    o.provider = profile;
-  }
-  if (model) {
-    o.model = model;
-  }
-  return o;
+  return workshopLlmOptionsFromStrings(
+    cfg.get<string>('activeLlmProfile'),
+    cfg.get<string>('workshopModelOverride')
+  );
 }

@@ -11,7 +11,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from author_kit.config import get_author_kit_settings
 from author_kit.core.llm_aggregator import LLMAPIAggregator
 from author_kit.core.settings_store import SettingsStore
-from author_kit.routers import app_settings, chat, compendium, conversation, health, prompts, projects, rag, workshop
+from author_kit.routers import (
+    app_settings,
+    chat,
+    compendium,
+    conversation,
+    health,
+    projects,
+    prompts,
+    rag,
+    workshop,
+)
 
 
 @asynccontextmanager

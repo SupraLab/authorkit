@@ -3,8 +3,6 @@
 import json
 from pathlib import Path
 
-import pytest
-
 from author_kit.core.llm_aggregator import LLMAPIAggregator
 from author_kit.core.paths import workshop_thread_json_path
 
@@ -211,8 +209,6 @@ def test_stream_persists_user_message_context(client, tmp_path: Path, monkeypatc
     assert u["content"] == "Hello"
     assert u.get("context") is not None
     assert u["context"]["scene_uuids"] == [uid]
-    assert u["context"]["compendium_excerpts"] == [
-        {"category": "Characters", "name": "Ethan"}
-    ]
+    assert u["context"]["compendium_excerpts"] == [{"category": "Characters", "name": "Ethan"}]
     assert messages[1]["role"] == "assistant"
     assert messages[1].get("context") in (None, {})

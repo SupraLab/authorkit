@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 import pickle
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, List, Optional
 
 import faiss
 import numpy as np
@@ -23,12 +23,12 @@ class EmbeddingIndex:
         self,
         dim: int,
         embed_fn: Callable[[str], np.ndarray],
-        index: Optional["faiss.Index"] = None,
+        index: faiss.Index | None = None,
     ):
         self.dim = dim
         self.embed_fn = embed_fn
         self.index = index if index is not None else faiss.IndexFlatL2(dim)
-        self.texts: List[str] = []
+        self.texts: list[str] = []
 
     def add_text(self, text: str) -> None:
         vector = self.embed_fn(text)
@@ -37,13 +37,13 @@ class EmbeddingIndex:
         self.index.add(np.expand_dims(vector, axis=0))
         self.texts.append(text)
 
-    def query(self, text: str, k: int = 3) -> List[str]:
+    def query(self, text: str, k: int = 3) -> list[str]:
         if self.index.ntotal == 0:
             return []
         vector = self.embed_fn(text)
         kk = min(k, self.index.ntotal)
         distances, indices = self.index.search(np.expand_dims(vector, axis=0), kk)
-        results: List[str] = []
+        results: list[str] = []
         for idx in indices[0]:
             if idx == -1:
                 continue
@@ -61,7 +61,7 @@ class PersistentRagIndex:
         self._index_path = self._dir / "faiss.index"
         self._texts_path = self._dir / "texts.json"
         self._meta_path = self._dir / META_NAME
-        self._cache: Optional[EmbeddingIndex] = None
+        self._cache: EmbeddingIndex | None = None
 
     def is_available(self) -> bool:
         return self._index_path.is_file() and self._texts_path.is_file()
@@ -91,10 +91,10 @@ class PersistentRagIndex:
         self._cache = ei
         return ei
 
-    def query(self, text: str, k: int = 3) -> List[str]:
+    def query(self, text: str, k: int = 3) -> list[str]:
         return self._load().query(text, k=k)
 
-    def rebuild(self, chunks: List[str], embedding_backend: str = "tiktoken") -> None:
+    def rebuild(self, chunks: list[str], embedding_backend: str = "tiktoken") -> None:
         self._dir.mkdir(parents=True, exist_ok=True)
         dim, embed_fn = get_embedding_fn(embedding_backend)
         ei = EmbeddingIndex(dim, embed_fn)

@@ -1,0 +1,85 @@
+name: Release API binaries and VSIX
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            triplet: linux-x64
+          - os: windows-latest
+            triplet: win-amd64
+          - os: macos-14
+            triplet: darwin-arm64
+          # macos-13 retired (2025); Intel/x64 uses the dedicated image until GH drops x64 macOS runners.
+          - os: macos-15-intel
+            triplet: darwin-x64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: api/pyproject.toml
+
+      - name: Build standalone
+        env:
+          AUTHOR_KIT_PLATFORM: ${{ matrix.triplet }}
+        run: bash api/scripts/build-standalone.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: author-kit-api-${{ matrix.triplet }}
+          path: api/dist/release/*.zip
+
+  vsix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: plugin/package-lock.json
+
+      - name: Package VSIX
+        working-directory: plugin
+        run: |
+          npm ci
+          npx --yes @vscode/vsce package
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: author-kit-vsix
+          path: plugin/*.vsix
+
+  publish:
+    needs: [build, vsix]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

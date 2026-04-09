@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from langchain_core.prompts import PromptTemplate
 
 
 def assemble_final_prompt(
-    prompt_config: Dict[str, Any],
+    prompt_config: dict[str, Any],
     user_input: str,
-    additional_vars: Optional[Dict[str, str]] = None,
-    current_scene_text: Optional[str] = None,
-    extra_context: Optional[str] = None,
+    additional_vars: dict[str, str] | None = None,
+    current_scene_text: str | None = None,
+    extra_context: str | None = None,
 ) -> PromptTemplate:
     prompt_text = prompt_config.get(
         "text", "Write a story chapter based on the following user input"
@@ -59,11 +59,11 @@ def assemble_final_prompt(
 
 
 def preview_final_prompt(
-    prompt_config: Dict[str, Any],
+    prompt_config: dict[str, Any],
     user_input: str,
-    additional_vars: Optional[Dict[str, str]] = None,
-    current_scene_text: Optional[str] = None,
-    extra_context: Optional[str] = None,
+    additional_vars: dict[str, str] | None = None,
+    current_scene_text: str | None = None,
+    extra_context: str | None = None,
 ) -> str:
     final_prompt = assemble_final_prompt(
         prompt_config,

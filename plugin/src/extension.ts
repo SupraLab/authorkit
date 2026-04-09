@@ -13,7 +13,18 @@ import {
   moveStructureUp,
 } from './commands/structureManage';
 import { renameStructureNode } from './commands/renameStructure';
-import { getApiBaseUrl, getCharactersCategoryName, getWorldCategoryName } from './config';
+import {
+  getApiBaseUrl,
+  getCharactersCategoryName,
+  getStartLocalApi,
+  getWorldCategoryName,
+} from './config';
+import {
+  ensureLocalApiRunning,
+  redownloadBundledApi,
+  registerLocalApiOnActivate,
+  stopLocalApiProcess,
+} from './api/localApiProcess';
 import { CompendiumProvider, type EntryItem } from './providers/compendiumProvider';
 import { OutlineProvider, type OutlineTreeItem } from './providers/outlineProvider';
 import { openSceneDocument } from './scenes';
@@ -233,7 +244,7 @@ export function activate(context: vscode.ExtensionContext): void {
           detail = vscode.l10n.t(' (/ready failed)');
         }
         void vscode.window.showInformationMessage(
-          vscode.l10n.t('API OK — {0} ({1}){2}', base, String(h.status ?? 'ok'), detail)
+          vscode.l10n.t('API OK - {0} ({1}){2}', base, String(h.status ?? 'ok'), detail)
         );
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -260,11 +271,28 @@ export function activate(context: vscode.ExtensionContext): void {
   registerWorkshopSelectionCodeLens(context);
 
   void updateAuthorkitProjectContext();
-  void updateConnectionStatus();
+
+  registerLocalApiOnActivate(context);
+  void (async () => {
+    if (getStartLocalApi()) {
+      await ensureLocalApiRunning(context);
+    }
+    await updateConnectionStatus();
+  })();
+
   const interval = setInterval(() => {
     void updateConnectionStatus();
   }, 30_000);
   context.subscriptions.push(new vscode.Disposable(() => clearInterval(interval)));
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('authorkit.redownloadApi', async () => {
+      await redownloadBundledApi(context);
+      await updateConnectionStatus();
+    })
+  );
 }
 
-export function deactivate(): void {}
+export function deactivate(): void {
+  stopLocalApiProcess();
+}

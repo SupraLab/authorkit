@@ -33,7 +33,9 @@ def rag_query(body: RagQueryRequest) -> RagQueryResponse:
         raise HTTPException(status_code=400, detail="invalid workspace_root")
     idx = PersistentRagIndex(ws)
     if not idx.is_available():
-        raise HTTPException(status_code=404, detail="no RAG index for workspace; POST /v1/rag/index first")
+        raise HTTPException(
+            status_code=404, detail="no RAG index for workspace; POST /v1/rag/index first"
+        )
     chunks = idx.query(body.query, k=body.k)
     return RagQueryResponse(chunks=chunks)
 

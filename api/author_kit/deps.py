@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import Header, HTTPException, Query, Request
 
@@ -29,9 +29,9 @@ def workspace_from_query(
 
 
 def workspace_optional(
-    x_workspace_root: Annotated[Optional[str], Header()] = None,
-    workspace_root: Annotated[Optional[str], Query()] = None,
-) -> Optional[Path]:
+    x_workspace_root: Annotated[str | None, Header()] = None,
+    workspace_root: Annotated[str | None, Query()] = None,
+) -> Path | None:
     raw = workspace_root or x_workspace_root
     if not raw:
         return None

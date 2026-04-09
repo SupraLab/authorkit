@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 from author_kit.core.rag_index import PersistentRagIndex
 
@@ -40,12 +39,12 @@ def _locale_reinforcement_hint(locale_tag: str) -> str:
 def build_augmented_user_content(
     user_message: str,
     *,
-    extra_context: Optional[str] = None,
+    extra_context: str | None = None,
     use_rag: bool = False,
-    workspace_root: Optional[Path] = None,
+    workspace_root: Path | None = None,
     selection_scope_reply: bool = False,
     selection_with_reference_material: bool = False,
-    user_language: Optional[str] = None,
+    user_language: str | None = None,
 ) -> str:
     """Return a single user message string for the LLM (legacy workshop `construct_message` core)."""
     augmented = user_message.strip()

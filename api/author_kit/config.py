@@ -2,7 +2,6 @@
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -19,7 +18,7 @@ class AuthorKitSettings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8765
     cors_origins: list[str] = Field(default_factory=lambda: ["*"])
-    settings_path: Optional[Path] = Field(
+    settings_path: Path | None = Field(
         default=None,
         description="Path to JSON file with llm_configs (defaults to ~/.authorkit/settings.json)",
     )

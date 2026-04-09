@@ -5,12 +5,12 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from author_kit.core.paths import compendium_entry_markdown_path, compendium_path
 
 
-def _ensure_categories_list(data: Dict[str, Any]) -> Dict[str, Any]:
+def _ensure_categories_list(data: dict[str, Any]) -> dict[str, Any]:
     categories = data.get("categories", [])
     if isinstance(categories, dict):
         data["categories"] = [
@@ -21,7 +21,7 @@ def _ensure_categories_list(data: Dict[str, Any]) -> Dict[str, Any]:
     return data
 
 
-def load_compendium(workspace_root: Path) -> Dict[str, Any]:
+def load_compendium(workspace_root: Path) -> dict[str, Any]:
     path = compendium_path(workspace_root)
     if not path.is_file():
         return {"categories": []}
@@ -33,7 +33,7 @@ def load_compendium(workspace_root: Path) -> Dict[str, Any]:
         return {"categories": []}
 
 
-def save_compendium(workspace_root: Path, data: Dict[str, Any]) -> None:
+def save_compendium(workspace_root: Path, data: dict[str, Any]) -> None:
     path = compendium_path(workspace_root)
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = _ensure_categories_list(dict(data))
@@ -42,10 +42,10 @@ def save_compendium(workspace_root: Path, data: Dict[str, Any]) -> None:
 
 
 def get_entry_text(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     category: str,
     entry: str,
-    workspace_root: Optional[Path] = None,
+    workspace_root: Path | None = None,
 ) -> str:
     for cat in data.get("categories", []):
         if cat.get("name") == category:
@@ -61,12 +61,12 @@ def get_entry_text(
 
 
 def format_compendium_excerpts(
-    data: Dict[str, Any],
-    refs: List[Dict[str, str]],
-    workspace_root: Optional[Path] = None,
+    data: dict[str, Any],
+    refs: list[dict[str, str]],
+    workspace_root: Path | None = None,
 ) -> str:
     """refs: items with keys `category` and `name` (entry name)."""
-    blocks: List[str] = []
+    blocks: list[str] = []
     for ref in refs:
         cat = ref.get("category", "")
         name = ref.get("name", "")
@@ -75,9 +75,9 @@ def format_compendium_excerpts(
     return "\n\n".join(blocks)
 
 
-def parse_references(message: str, data: Dict[str, Any]) -> List[str]:
-    refs: List[str] = []
-    names: List[str] = []
+def parse_references(message: str, data: dict[str, Any]) -> list[str]:
+    refs: list[str] = []
+    names: list[str] = []
     cats = data.get("categories", [])
     if isinstance(cats, dict):
         names = list(cats.keys())

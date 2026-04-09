@@ -41,13 +41,34 @@ Upstream **Writingway** is © aomukai (MIT). See **`LICENSE`**.
 |--------|---------|
 | [`api/`](api/README.md) | AuthorKit **HTTP service** (Python). |
 | [`plugin/`](plugin/README.md) | **VS Code extension** (TypeScript). |
-| `source/` | *(Optional)* Legacy Writingway **PyQt** app—not required for AuthorKit. |
+| [`source/`](source/) | *(Optional)* Legacy Writingway **PyQt** app—not required for AuthorKit. |
+| [`.github/workflows/`](.github/workflows/) | **CI** (tests, Ruff, extension compile) and **tagged releases** (standalone API zips + VSIX). |
 
 ## Quick start
 
-1. **API:** follow [**api/README.md**](api/README.md) — `uvicorn` on `127.0.0.1:8765` by default.
-2. **Extension:** follow [**plugin/README.md**](plugin/README.md) — `npm install`, `npm run compile`, F5 to debug.
-3. In VS Code, **open a folder** (single-root workspace), run **Initialize Workspace** once, then use the AuthorKit views.
+### Using GitHub Releases (no clone)
+
+Each **[release](https://github.com/SupraLab/authorkit/releases)** for a tag `v*` (e.g. `v0.1.0`) ships **pre-built assets**: the VS Code extension as **`author-kit-<semver>.vsix`** and one **API zip per OS** — `author-kit-api-<semver>-<platform>.zip` (`linux-x64`, `win-amd64`, `darwin-arm64`, `darwin-x64`). The semver in the filenames comes from **`plugin/package.json`** (VSIX) and the API build (**[`api/pyproject.toml`](api/pyproject.toml)**); keep them aligned with the tag for a consistent stack.
+
+1. **Install the extension:** download **`author-kit-<semver>.vsix`** from that release. In VS Code: **Extensions** → **⋯** → **Install from VSIX…**, choose the file, reload if prompted.
+2. **Run the API** — pick one:
+   - **Extension-managed (simplest):** in settings, enable **Start local API**. On first use the extension downloads the matching **`author-kit-api-<semver>-<platform>.zip`** from the **same** release, caches it, and runs the binary on `127.0.0.1` (port configurable). Details: [**plugin/README.md**](plugin/README.md) (**Local API bundle**, **Re-download AuthorKit API bundle**).
+   - **Manual:** extract the zip for your platform, run the `author-kit-api` executable (or use `uvicorn` / `python -m author_kit` from [**api/README.md**](api/README.md)). Turn **Start local API** off and set **API base URL** (default `http://127.0.0.1:8765`).
+3. **File → Open Folder** on your novel project (single-root workspace), run **Initialize Workspace** once, then use the AuthorKit views.
+
+### Developing from this repository
+
+1. **Extension:** [**plugin/README.md**](plugin/README.md) — `npm install`, `npm run compile`, **Run → Start Debugging** (F5), or build a `.vsix` locally with `vsce package`.
+2. **API:** as in [**api/README.md**](api/README.md) — venv, `pip install -e ".[dev]"`, `uvicorn …`, or a local PyInstaller build via `api/scripts/build-standalone.sh`.
+3. Same workspace step as above: open a folder, **Initialize Workspace**, then use the views.
+
+## Releases and CI
+
+- **Quality CI** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)): on pushes and pull requests to `main` / `master`, runs **pytest** and **Ruff** on the API (Python 3.10 and 3.12) and on the extension **`npm run lint`** (ESLint), **`npm run test`** (Vitest), and **`npm run compile`**.
+- **Release (API + VSIX)** ([`.github/workflows/release-api-binaries.yml`](.github/workflows/release-api-binaries.yml)): on a version tag `v*` (e.g. `v0.1.0`), builds **PyInstaller** bundles per OS with [`api/scripts/build-standalone.sh`](api/scripts/build-standalone.sh), packages the extension with **`@vscode/vsce`**, and attaches to the GitHub Release:
+  - **`author-kit-api-<semver>-<platform>.zip`** for each supported platform;
+  - **`author-kit-<semver>.vsix`** (name and version from **`plugin/package.json`**).
+  The extension’s **`bundledApiVersion`** (in `plugin/package.json`) should match the API semver you expect users to download for that release.
 
 ## License
 

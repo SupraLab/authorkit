@@ -6,11 +6,11 @@ import copy
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_SETTINGS: Dict[str, Any] = {
+DEFAULT_SETTINGS: dict[str, Any] = {
     "version": "1",
     "general": {
         "language": "en",
@@ -81,15 +81,15 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
 class SettingsStore:
     """Holds AuthorKit settings dict; optionally persists to disk."""
 
-    def __init__(self, file_path: Optional[Path] = None, data: Optional[Dict[str, Any]] = None):
+    def __init__(self, file_path: Path | None = None, data: dict[str, Any] | None = None):
         self.file_path = Path(file_path) if file_path else None
-        self._settings: Dict[str, Any] = copy.deepcopy(DEFAULT_SETTINGS)
+        self._settings: dict[str, Any] = copy.deepcopy(DEFAULT_SETTINGS)
         if data is not None:
             self._merge(data)
         elif self.file_path and self.file_path.exists():
             self._load()
 
-    def _merge(self, data: Dict[str, Any]) -> None:
+    def _merge(self, data: dict[str, Any]) -> None:
         if "llm_configs" in data:
             self._settings["llm_configs"].update(data.get("llm_configs", {}))
         for key in ("version", "active_llm_config", "general"):
@@ -123,13 +123,13 @@ class SettingsStore:
             logger.error("Failed to save settings: %s", e)
             return False
 
-    def get_llm_configs(self) -> Dict[str, Dict[str, Any]]:
+    def get_llm_configs(self) -> dict[str, dict[str, Any]]:
         return copy.deepcopy(self._settings.get("llm_configs", {}))
 
     def get_active_llm_name(self) -> str:
         return self._settings.get("active_llm_config", "") or ""
 
-    def get_active_llm_config(self) -> Optional[Dict[str, Any]]:
+    def get_active_llm_config(self) -> dict[str, Any] | None:
         name = self.get_active_llm_name()
         if name and name in self._settings.get("llm_configs", {}):
             return copy.deepcopy(self._settings["llm_configs"][name])
@@ -139,13 +139,13 @@ class SettingsStore:
         if name in self._settings.get("llm_configs", {}):
             self._settings["active_llm_config"] = name
 
-    def update_llm_config(self, name: str, config: Dict[str, Any]) -> None:
+    def update_llm_config(self, name: str, config: dict[str, Any]) -> None:
         self._settings.setdefault("llm_configs", {})[name] = config
 
-    def merge_from_dict(self, data: Dict[str, Any]) -> None:
+    def merge_from_dict(self, data: dict[str, Any]) -> None:
         """Merge settings from a client (e.g. VS Code extension); same rules as loading from disk."""
         self._merge(data)
 
     @property
-    def raw(self) -> Dict[str, Any]:
+    def raw(self) -> dict[str, Any]:
         return copy.deepcopy(self._settings)

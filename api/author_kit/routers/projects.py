@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -18,12 +18,12 @@ router = APIRouter(tags=["projects"])
 
 class StructurePutBody(BaseModel):
     workspace_root: str
-    structure: Dict[str, Any]
+    structure: dict[str, Any]
 
 
 class SettingsPutBody(BaseModel):
     workspace_root: str
-    settings: Dict[str, Any]
+    settings: dict[str, Any]
 
 
 class PromptsPutBody(BaseModel):
@@ -44,7 +44,7 @@ def _ws(path: str) -> Path:
 
 
 @router.get("/v1/projects/structure")
-def get_structure(ws: Path = Depends(workspace_from_query)) -> Dict[str, Any]:
+def get_structure(ws: Path = Depends(workspace_from_query)) -> dict[str, Any]:
     return project_store.load_structure(ws)
 
 
@@ -58,7 +58,7 @@ def put_structure(body: StructurePutBody) -> dict:
 
 
 @router.get("/v1/projects/settings")
-def get_project_settings(ws: Path = Depends(workspace_from_query)) -> Dict[str, Any]:
+def get_project_settings(ws: Path = Depends(workspace_from_query)) -> dict[str, Any]:
     return project_store.load_project_settings(ws)
 
 

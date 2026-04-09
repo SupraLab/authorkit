@@ -5,11 +5,11 @@ from __future__ import annotations
 import json
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from author_kit.core.paths import project_settings_path, structure_path
 
-DEFAULT_STRUCTURE: Dict[str, Any] = {
+DEFAULT_STRUCTURE: dict[str, Any] = {
     "acts": [
         {
             "name": "Act 1",
@@ -30,7 +30,7 @@ DEFAULT_STRUCTURE: Dict[str, Any] = {
 }
 
 
-def _ensure_uuids(node: Dict[str, Any]) -> None:
+def _ensure_uuids(node: dict[str, Any]) -> None:
     if "uuid" not in node or not node["uuid"]:
         node["uuid"] = str(uuid.uuid4())
     if "summary" in node and "has_summary" not in node:
@@ -40,7 +40,7 @@ def _ensure_uuids(node: Dict[str, Any]) -> None:
             _ensure_uuids(child)
 
 
-def load_structure(workspace_root: Path) -> Dict[str, Any]:
+def load_structure(workspace_root: Path) -> dict[str, Any]:
     path = structure_path(workspace_root)
     if not path.is_file():
         data = json.loads(json.dumps(DEFAULT_STRUCTURE))
@@ -57,14 +57,14 @@ def load_structure(workspace_root: Path) -> Dict[str, Any]:
         return json.loads(json.dumps(DEFAULT_STRUCTURE))
 
 
-def save_structure(workspace_root: Path, structure: Dict[str, Any]) -> None:
+def save_structure(workspace_root: Path, structure: dict[str, Any]) -> None:
     path = structure_path(workspace_root)
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(structure, f, indent=2, ensure_ascii=False)
 
 
-def load_project_settings(workspace_root: Path) -> Dict[str, Any]:
+def load_project_settings(workspace_root: Path) -> dict[str, Any]:
     path = project_settings_path(workspace_root)
     defaults = {
         "global_pov": "Third Person Limited",
@@ -82,7 +82,7 @@ def load_project_settings(workspace_root: Path) -> Dict[str, Any]:
         return defaults
 
 
-def save_project_settings(workspace_root: Path, settings: Dict[str, Any]) -> None:
+def save_project_settings(workspace_root: Path, settings: dict[str, Any]) -> None:
     path = project_settings_path(workspace_root)
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
@@ -90,8 +90,8 @@ def save_project_settings(workspace_root: Path, settings: Dict[str, Any]) -> Non
 
 
 def find_scene_by_hierarchy(
-    structure: Dict[str, Any], hierarchy: List[str]
-) -> Optional[Dict[str, Any]]:
+    structure: dict[str, Any], hierarchy: list[str]
+) -> dict[str, Any] | None:
     """hierarchy: [act, chapter, scene]."""
     if len(hierarchy) < 3:
         return None
@@ -108,9 +108,9 @@ def find_scene_by_hierarchy(
     return None
 
 
-def walk_scenes(structure: Dict[str, Any]) -> List[tuple[List[str], Dict[str, Any]]]:
+def walk_scenes(structure: dict[str, Any]) -> list[tuple[list[str], dict[str, Any]]]:
     """Yield (hierarchy_names, scene_node)."""
-    out: List[tuple[List[str], Dict[str, Any]]] = []
+    out: list[tuple[list[str], dict[str, Any]]] = []
     for act in structure.get("acts", []):
         an = act.get("name", "")
         for ch in act.get("chapters", []):

@@ -3,6 +3,7 @@
   "displayName": "%displayName%",
   "description": "%description%",
   "version": "0.1.0",
+  "bundledApiVersion": "0.1.0",
   "license": "MIT",
   "author": "Julien Moulin <julien@supralab.fr>",
   "repository": {
@@ -59,6 +60,26 @@
           "type": "boolean",
           "default": true,
           "description": "%config.selectionCodeLens%"
+        },
+        "authorkit.startLocalApi": {
+          "type": "boolean",
+          "default": false,
+          "description": "%config.startLocalApi%"
+        },
+        "authorkit.localApiPort": {
+          "type": "number",
+          "default": 8765,
+          "description": "%config.localApiPort%"
+        },
+        "authorkit.localApiBinaryPath": {
+          "type": "string",
+          "default": "",
+          "description": "%config.localApiBinaryPath%"
+        },
+        "authorkit.githubApiReleaseTag": {
+          "type": "string",
+          "default": "",
+          "description": "%config.githubApiReleaseTag%"
         }
       }
     },
@@ -145,6 +166,11 @@
         "title": "%command.testConnection%"
       },
       {
+        "command": "authorkit.redownloadApi",
+        "title": "%command.redownloadApi%",
+        "icon": "$(cloud-download)"
+      },
+      {
         "command": "authorkit.initWorkspace",
         "title": "%command.initWorkspace%",
         "icon": "$(new-folder)"
@@ -227,6 +253,11 @@
           "group": "navigation@3"
         },
         {
+          "command": "authorkit.redownloadApi",
+          "when": "view == authorkit.outline && config.authorkit.startLocalApi",
+          "group": "navigation@5"
+        },
+        {
           "command": "authorkit.addAct",
           "when": "view == authorkit.outline && workspaceFolderCount > 0",
           "group": "navigation@4"
@@ -298,11 +329,19 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
+    "@eslint/js": "^9.17.0",
     "@types/node": "^20.10.0",
     "@types/vscode": "^1.90.0",
-    "typescript": "^5.4.0"
+    "@vitest/coverage-v8": "^3.0.0",
+    "eslint": "^9.17.0",
+    "typescript": "^5.4.0",
+    "typescript-eslint": "^8.19.0",
+    "vitest": "^3.0.0"
   }
 }

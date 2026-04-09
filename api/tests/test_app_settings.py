@@ -1,8 +1,7 @@
 """Global app settings API."""
 
-from fastapi.testclient import TestClient
-
 from author_kit.main import create_app
+from fastapi.testclient import TestClient
 
 
 def test_app_settings_get():

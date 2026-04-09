@@ -21,3 +21,8 @@ yarn-error.log*
 
 # Packaged extension (often built from plugin/)
 *.vsix
+
+# Python API build / venv
+api/.venv/
+api/build/
+api/dist/

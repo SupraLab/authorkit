@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from author_kit.deps import get_aggregator
 from author_kit.core.llm_aggregator import LLMAPIAggregator
+from author_kit.deps import get_aggregator
 from author_kit.schemas import SummarizeRequest, SummarizeResponse
 
 router = APIRouter(tags=["conversation"])
@@ -21,7 +21,7 @@ def summarize_conversation(
 
     lines = []
     for m in req.messages:
-        lines.append(f'{m.role}: {m.content}')
+        lines.append(f"{m.role}: {m.content}")
     conversation_text = "\n".join(lines)
 
     final_prompt = (

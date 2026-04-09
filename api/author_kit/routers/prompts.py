@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from author_kit.deps import get_aggregator
 from author_kit.core.llm_aggregator import LLMAPIAggregator
+from author_kit.deps import get_aggregator
 from author_kit.schemas import PromptPreviewRequest, ProseGenerateRequest
 from author_kit.services.prompt_assembly import preview_final_prompt
 

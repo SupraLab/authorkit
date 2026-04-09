@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -23,11 +23,11 @@ def _ws(path: str) -> Path:
 
 class CompendiumPutBody(BaseModel):
     workspace_root: str
-    data: Dict[str, Any]
+    data: dict[str, Any]
 
 
 @router.get("/v1/compendium")
-def get_compendium(ws: Path = Depends(workspace_from_query)) -> Dict[str, Any]:
+def get_compendium(ws: Path = Depends(workspace_from_query)) -> dict[str, Any]:
     return compendium_store.load_compendium(ws)
 
 

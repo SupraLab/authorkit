@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import sqlite3
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any
 
 from author_kit.core.paths import workshop_db_path, workshop_thread_json_path, workshop_threads_dir
 
@@ -75,9 +76,9 @@ class ThreadRow:
     id: str
     workspace_root: str
     title: str
-    rolling_summary: Optional[str]
-    seed_type: Optional[str]
-    seed_ref: Optional[str]
+    rolling_summary: str | None
+    seed_type: str | None
+    seed_ref: str | None
     created_at: str
     updated_at: str
 
@@ -86,8 +87,8 @@ def create_thread(
     workspace_root: Path,
     *,
     title: str = "",
-    seed_type: Optional[str] = None,
-    seed_ref: Optional[str] = None,
+    seed_type: str | None = None,
+    seed_ref: str | None = None,
 ) -> str:
     tid = str(uuid.uuid4())
     ws = str(workspace_root.resolve())
@@ -105,7 +106,9 @@ def create_thread(
         conn.commit()
     finally:
         conn.close()
-    write_thread_metadata_file(workspace_root, tid, title=title or "Workshop", seed_type=seed_type, seed_ref=seed_ref)
+    write_thread_metadata_file(
+        workspace_root, tid, title=title or "Workshop", seed_type=seed_type, seed_ref=seed_ref
+    )
     return tid
 
 
@@ -127,7 +130,7 @@ def delete_thread(workspace_root: Path, thread_id: str) -> bool:
     return deleted
 
 
-def list_threads(workspace_root: Path) -> List[ThreadRow]:
+def list_threads(workspace_root: Path) -> list[ThreadRow]:
     ws = str(workspace_root.resolve())
     conn = get_connection(workspace_root)
     try:
@@ -157,7 +160,7 @@ def list_threads(workspace_root: Path) -> List[ThreadRow]:
     ]
 
 
-def get_thread(workspace_root: Path, thread_id: str) -> Optional[ThreadRow]:
+def get_thread(workspace_root: Path, thread_id: str) -> ThreadRow | None:
     ws = str(workspace_root.resolve())
     conn = get_connection(workspace_root)
     try:
@@ -185,7 +188,7 @@ def get_thread(workspace_root: Path, thread_id: str) -> Optional[ThreadRow]:
     )
 
 
-def list_messages(workspace_root: Path, thread_id: str) -> List[dict]:
+def list_messages(workspace_root: Path, thread_id: str) -> list[dict]:
     ws = str(workspace_root.resolve())
     conn = get_connection(workspace_root)
     try:
@@ -205,15 +208,13 @@ def list_messages(workspace_root: Path, thread_id: str) -> List[dict]:
         ).fetchall()
     finally:
         conn.close()
-    out: List[dict] = []
+    out: list[dict] = []
     for r in rows:
         row: dict = {"role": r["role"], "content": r["content"]}
         cj = r["context_json"]
         if cj:
-            try:
+            with contextlib.suppress(json.JSONDecodeError):
                 row["context"] = json.loads(cj)
-            except json.JSONDecodeError:
-                pass
         out.append(row)
     return out
 
@@ -224,7 +225,7 @@ def append_message(
     role: str,
     content: str,
     *,
-    context_json: Optional[str] = None,
+    context_json: str | None = None,
 ) -> None:
     ws = str(workspace_root.resolve())
     now = _utc_now_iso()
@@ -248,7 +249,7 @@ def append_message(
         conn.close()
 
 
-def update_rolling_summary(workspace_root: Path, thread_id: str, summary: Optional[str]) -> None:
+def update_rolling_summary(workspace_root: Path, thread_id: str, summary: str | None) -> None:
     ws = str(workspace_root.resolve())
     now = _utc_now_iso()
     conn = get_connection(workspace_root)
@@ -302,9 +303,9 @@ def write_thread_metadata_file(
     thread_id: str,
     *,
     title: str,
-    seed_type: Optional[str] = None,
-    seed_ref: Optional[str] = None,
-    extra: Optional[dict] = None,
+    seed_type: str | None = None,
+    seed_ref: str | None = None,
+    extra: dict | None = None,
 ) -> None:
     workshop_threads_dir(workspace_root).mkdir(parents=True, exist_ok=True)
     path = workshop_thread_json_path(workspace_root, thread_id)

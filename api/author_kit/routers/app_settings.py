@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 
@@ -10,14 +10,14 @@ router = APIRouter(tags=["app-settings"])
 
 
 @router.get("/v1/app/settings")
-def get_app_settings(request: Request) -> Dict[str, Any]:
+def get_app_settings(request: Request) -> dict[str, Any]:
     """Return full settings dict (includes API keys; intended for localhost / trusted clients)."""
     store = request.app.state.settings_store
     return store.raw
 
 
 @router.put("/v1/app/settings")
-def put_app_settings(request: Request, body: Dict[str, Any]) -> dict:
+def put_app_settings(request: Request, body: dict[str, Any]) -> dict:
     """Merge JSON into the in-memory store and persist to disk."""
     store = request.app.state.settings_store
     store.merge_from_dict(body)
