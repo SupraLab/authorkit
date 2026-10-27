@@ -59,7 +59,8 @@ flowchart TD
 
 The status bar is drawn before the side panels so it spans the full window width. Side panels
 are resizable (nav 280–420 px, sidebar 280–520 px); widths are saved in `UiPrefs` when a drag
-ends.
+ends. Inside the nav, the manuscript tree and the Univers list scroll separately. A drag handle
+between them stores the split in `UiPrefs.manuscript_height`.
 
 ## Action dispatch pattern
 
