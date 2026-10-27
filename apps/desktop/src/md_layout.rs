@@ -81,6 +81,51 @@ pub fn highlight_markdown_ex(
     (job, extras)
 }
 
+/// Split `* item`, `- item` or `+ item` into indent, marker and content.
+/// The marker keeps the bullet character and the spaces that follow it, so a
+/// visual stand-in can replace it without moving the cursor.
+pub fn unordered_item(line: &str) -> Option<(&str, &str, &str)> {
+    if is_thematic_break(line) {
+        return None;
+    }
+    let indent_chars = line.chars().take_while(|c| *c == ' ').count();
+    let indent_bytes = line
+        .char_indices()
+        .nth(indent_chars)
+        .map(|(i, _)| i)
+        .unwrap_or(line.len());
+    let rest = &line[indent_bytes..];
+    let mut chars = rest.chars();
+    let mark = chars.next()?;
+    if !matches!(mark, '*' | '-' | '+') {
+        return None;
+    }
+    if chars.next() != Some(' ') {
+        return None;
+    }
+    let extra_spaces = chars.take_while(|c| *c == ' ').count();
+    let marker_bytes = mark.len_utf8() + 1 + extra_spaces;
+    Some((
+        &line[..indent_bytes],
+        &rest[..marker_bytes],
+        &rest[marker_bytes..],
+    ))
+}
+
+/// Same character count as `marker`, drawn as a bullet plus spaces.
+fn bullet_stand_in(marker: &str) -> String {
+    let mut shown = String::from("•");
+    for _ in 1..marker.chars().count() {
+        shown.push(' ');
+    }
+    shown
+}
+
+fn is_thematic_break(line: &str) -> bool {
+    let marks: Vec<char> = line.chars().filter(|c| !c.is_whitespace()).collect();
+    marks.len() >= 3 && matches!(marks[0], '*' | '-' | '_') && marks.iter().all(|c| *c == marks[0])
+}
+
 fn heading_prefix(trim: &str) -> Option<(u8, &str, &str)> {
     let bytes = trim.as_bytes();
     let mut n = 0usize;
@@ -120,6 +165,13 @@ fn highlight_line(
         append_marker(job, prefix, marker_font);
         let font = &headings[(level as usize).saturating_sub(1)];
         append(job, rest, fg, font, false);
+        append(job, newline, fg, body, false);
+        return;
+    }
+    if let Some((indent, marker, rest)) = unordered_item(trim) {
+        append(job, indent, fg, body, false);
+        append(job, &bullet_stand_in(marker), fg, body, false);
+        style_inline(rest, job, body, bold, mono, marker_font, fg, false);
         append(job, newline, fg, body, false);
         return;
     }
@@ -277,6 +329,34 @@ pub fn merge_quote_blocks(ranges: &[(usize, usize)]) -> Vec<(usize, usize)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unordered_item_splits_markers_and_keeps_char_count() {
+        let (indent, marker, content) = unordered_item("* les flux").unwrap();
+        assert_eq!(indent, "");
+        assert_eq!(marker, "* ");
+        assert_eq!(content, "les flux");
+        assert_eq!(
+            bullet_stand_in(marker).chars().count(),
+            marker.chars().count()
+        );
+
+        let (indent, marker, content) = unordered_item("  - deux  espaces").unwrap();
+        assert_eq!(indent, "  ");
+        assert_eq!(marker, "- ");
+        assert_eq!(content, "deux  espaces");
+
+        let (_, marker, content) = unordered_item("+  item").unwrap();
+        assert_eq!(marker, "+  ");
+        assert_eq!(content, "item");
+        assert_eq!(bullet_stand_in(marker).chars().count(), 3);
+
+        assert!(unordered_item("**gras**").is_none());
+        assert!(unordered_item("*pas d'espace").is_none());
+        assert!(unordered_item("***").is_none());
+        assert!(unordered_item("* * *").is_none());
+        assert!(unordered_item("à côté").is_none());
+    }
 
     #[test]
     fn heading_prefix_levels() {

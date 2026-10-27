@@ -298,6 +298,9 @@ impl Lang {
     pub fn quote(self) -> &'static str {
         tr(self, "Citation", "Quote")
     }
+    pub fn list(self) -> &'static str {
+        tr(self, "Liste à puces", "Bulleted list")
+    }
     pub fn more_brushes(self) -> &'static str {
         tr(
             self,

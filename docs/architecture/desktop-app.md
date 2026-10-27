@@ -124,8 +124,8 @@ Tabs: **Chat**, **Context** ("Contexte"), **Ideas** ("Id√©es"), **Reviews** ("R√
 
 `editor::show_scene` / `show_note` render a header (title, status, synopsis, Visual/Code
 switch), linked-note chips and the draft `TextEdit`. Selecting text shows a toolbar (bold,
-italic, heading, quote, "Au chat", first tools, more). Typing `/` at a word boundary opens the
-slash palette (continue, sentence, paragraph, generate).
+italic, heading, quote, bulleted list, "Au chat", first tools, more). Typing `/` at a word
+boundary opens the slash palette (continue, sentence, paragraph, generate).
 
 Editor persistence and conflict handling are described in
 [persistence-and-safety.md](persistence-and-safety.md).
