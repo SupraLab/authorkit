@@ -122,7 +122,13 @@ EOF
   if command -v zip >/dev/null; then
     (cd "$STAGE" && zip -qry "$out" "$name")
   else
-    (cd "$STAGE" && powershell -Command "Compress-Archive -Path '$name' -DestinationPath '$out'")
+    # PowerShell can't resolve MSYS paths like /d/a/...; hand it native Windows paths.
+    local win_out="$out" win_src="$dir"
+    if command -v cygpath >/dev/null; then
+      win_out="$(cygpath -w "$out")"
+      win_src="$(cygpath -w "$dir")"
+    fi
+    powershell -NoProfile -Command "Compress-Archive -Path '$win_src' -DestinationPath '$win_out' -Force"
   fi
   echo "Wrote $out"
 }
