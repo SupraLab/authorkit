@@ -1,0 +1,11 @@
+/target
+/dist
+**/*.rs.bk
+.DS_Store
+.env
+.env.*
+*.log
+.idea/
+.vscode/
+*.swp
+.authorkit-rust/

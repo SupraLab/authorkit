@@ -1,0 +1,30 @@
+#:schema https://dystroy.org/bacon/.bacon.schema.json
+# Dev loop: `bacon run` — rebuild + relaunch the app on every save.
+
+default_job = "check"
+env.CARGO_TERM_COLOR = "always"
+
+[jobs.check]
+command = ["cargo", "check", "--workspace", "--all-targets"]
+need_stdout = false
+
+# egui never exits — kill + restart on every change.
+[jobs.run]
+command = ["cargo", "run", "-p", "authorkit-desktop"]
+need_stdout = true
+allow_warnings = true
+background = false
+on_change_strategy = "kill_then_restart"
+scroll_anchor = "auto"
+
+[jobs.release]
+command = ["cargo", "run", "-p", "authorkit-desktop", "--release"]
+need_stdout = true
+allow_warnings = true
+background = false
+on_change_strategy = "kill_then_restart"
+scroll_anchor = "auto"
+
+[keybindings]
+r = "job:run"
+c = "job:check"

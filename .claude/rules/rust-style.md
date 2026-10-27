@@ -1,0 +1,34 @@
+---
+paths:
+  - "**/*.rs"
+---
+
+<!-- Generated from .cursor/rules/rust-style.mdc by scripts/sync-agent-config.sh. Do not edit. -->
+
+# Rust style
+
+Follow standard Rust conventions; don't introduce house style.
+
+- Format with `rustfmt` defaults ([Rust Style Guide](https://doc.rust-lang.org/nightly/style-guide/)).
+  No `rustfmt.toml` overrides.
+- Clippy must pass with `-D warnings` (`clippy.toml` only raises `too-many-arguments-threshold`).
+  Fix the cause; any `#[allow(clippy::…)]` needs a one-line reason.
+- Naming per [RFC 430](https://rust-lang.github.io/api-guidelines/naming.html):
+  `UpperCamelCase` types, `snake_case` fns/modules, `SCREAMING_SNAKE_CASE` consts.
+  Conversions `as_` (cheap borrow), `to_` (expensive), `into_` (consuming). Getters have no `get_`.
+- Derive common traits where meaningful (`Debug`, `Clone`, `PartialEq`, `Default`, serde).
+- Library crates return `Result<T, crate::Error>` with a `thiserror` enum. No `unwrap()` /
+  `expect()` on I/O, user input or model output outside tests; `?` and context instead.
+- Prefer `&str` / `&Path` / slices in parameters, owned types in structs.
+- Text positions are **char indices**. Convert with `char_indices()` / helpers; never slice a
+  `String` with an unchecked byte index.
+- Keep modules focused; put domain logic in `crates/`, not in `apps/desktop/src/app.rs`.
+- Comments and doc comments in English; `///` on public items explains contract, not mechanics.
+
+```rust
+// Good
+pub fn word_count(text: &str) -> usize { text.split_whitespace().count() }
+
+// Bad: byte slicing user text
+let head = &text[..40];
+```

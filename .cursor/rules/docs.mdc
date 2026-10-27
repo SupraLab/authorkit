@@ -1,0 +1,20 @@
+---
+description: Documentation, changelog and ADR conventions
+globs: docs/**/*.md, README.md, CHANGELOG.md, CONTRIBUTING.md
+alwaysApply: false
+---
+
+# Documentation
+
+- English only. Docs follow [Diátaxis](https://diataxis.fr/): `docs/architecture/`
+  (explanation), `docs/guides/` (how-to), `docs/reference/` (facts), `docs/adr/` (decisions).
+- Diagrams in Mermaid fenced blocks (GitHub renders them). Use them for flows and dependencies,
+  not for things a table says better.
+- Write identifiers exactly as in code and verify them with a search before documenting.
+  When code and docs disagree, fix the doc or record it in `docs/reference/known-issues.md`.
+- Update the matching doc page in the same PR as the behaviour change.
+- `CHANGELOG.md`: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/) sections
+  (Added, Changed, Deprecated, Removed, Fixed, Security) under `[Unreleased]`.
+- ADRs: Nygard format (Status, Context, Decision, Consequences), `docs/adr/NNNN-title.md` from
+  `template.md`; accepted ADRs are superseded, not edited.
+- Relative links only inside the repo; check they resolve.

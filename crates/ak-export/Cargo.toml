@@ -1,0 +1,19 @@
+[package]
+name = "ak-export"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "AuthorKit export: Markdown, EPUB, DOCX"
+
+[dependencies]
+ak-core = { workspace = true }
+thiserror = { workspace = true }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+docx-rs = "0.4"
+chrono = { workspace = true }
+
+[dev-dependencies]
+uuid = { workspace = true }

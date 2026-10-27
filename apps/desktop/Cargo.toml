@@ -1,0 +1,57 @@
+[package]
+name = "authorkit-desktop"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "AuthorKit desktop app — local-first writing studio in pure Rust"
+default-run = "authorkit-desktop"
+
+[[bin]]
+name = "authorkit-desktop"
+path = "src/main.rs"
+
+[package.metadata.bundle]
+name = "AuthorKit"
+identifier = "fr.supralab.authorkit"
+icon = [
+    "assets/brand/icon-32.png",
+    "assets/brand/icon-128.png",
+    "assets/brand/icon-256.png",
+    "assets/brand/icon-512.png",
+    "assets/brand/AuthorKit.icns",
+    "assets/brand/authorkit.ico",
+]
+short_description = "Local-first writing studio for storytellers"
+long_description = """
+AuthorKit is a BYOK, local-first desktop writing studio: manuscript, Notes,
+chat with scene context, and export to Markdown / EPUB / DOCX.
+"""
+category = "public.app-category.productivity"
+osx_info_plist_exts = []
+
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1"
+
+[dependencies]
+ak-core = { workspace = true }
+ak-llm = { workspace = true }
+ak-export = { workspace = true }
+ak-coherence = { workspace = true }
+eframe = { version = "0.34", default-features = true, features = ["default_fonts"] }
+egui = "0.34"
+egui_commonmark = { version = "0.23", default-features = false, features = ["pulldown_cmark"] }
+shadcn-egui = { version = "0.6", features = [
+    "font-ibm-plex-sans",
+] }
+rfd = "0.15"
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+dirs = "5"
+uuid = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

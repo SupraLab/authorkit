@@ -1,0 +1,26 @@
+---
+paths:
+  - "crates/ak-llm/**/*.rs"
+  - "crates/ak-coherence/**/*.rs"
+---
+
+<!-- Generated from .cursor/rules/llm.mdc by scripts/sync-agent-config.sh. Do not edit. -->
+
+# LLM layer
+
+See `docs/architecture/llm.md` and `docs/architecture/context-assembly.md`.
+
+- HTTP is `reqwest::blocking` + rustls on worker threads. No async runtime (ADR 0004).
+- One client: `OpenAiCompatClient` (`/chat/completions`, SSE). New provider = preset in
+  `apps/desktop/src/providers.rs` first; code only for real API differences (ADR 0005).
+- `JobPurpose` defines mutual cancellation: a new job cancels active jobs of the same purpose.
+  Add a purpose rather than reusing one whose jobs shouldn't be cancelled.
+- Check the cancel flag between stream chunks; always end a job with exactly one of
+  `Done` / `Error` / `Cancelled`.
+- Secrets: read via settings helpers; never log, embed in prompts or return them in errors.
+  Wrap surfaced errors with `redact_secrets`.
+- Context goes through `assemble` with `ContextBudget` / `RequestBudget` (characters). Don't
+  send whole manuscripts; report every piece's status so the Context panel stays truthful.
+- Parse model output defensively (code fences, partial JSON); never trust ids or statuses from
+  the model.
+- Tests: `JobKind::Mock`, no network; set `AUTHORKIT_HOME` to a temp dir and serialise env access.

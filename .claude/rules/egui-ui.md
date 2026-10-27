@@ -1,0 +1,35 @@
+---
+paths:
+  - "apps/desktop/src/**/*.rs"
+---
+
+<!-- Generated from .cursor/rules/egui-ui.mdc by scripts/sync-agent-config.sh. Do not edit. -->
+
+# egui UI (apps/desktop)
+
+Immediate-mode UI with eframe/egui 0.34 and `shadcn-egui`. See
+`docs/architecture/desktop-app.md`.
+
+- `AuthorKitApp` implements `eframe::App::ui` and owns all state. Panels
+  (`panels/*.rs`) draw from borrowed state and **return actions**; they don't mutate the app or
+  touch disk.
+- New interaction = new variant in `NavAction` / `EditorAction` / `SidebarAction` /
+  `OnboardingAction` (the welcome screen returns a `WelcomeAction` struct of flags), handled in
+  `app.rs` (`handle_nav`, `handle_editor`, `handle_sidebar`, …).
+- **Never block the frame.** No HTTP, no long file scans in draw code. Submit an `LlmJob` and
+  react to `LlmEvent`s in `handle_llm_event`; call `ctx.request_repaint()` while jobs run.
+- Widgets created in loops need stable ids: `egui::Id::new(("kind", &item.id))`, `ui.push_id`.
+- Reuse `widgets.rs` helpers and `theme.rs` tokens (colours, spacing, radii); use
+  `shadcn_egui::icons::lucide` for icons. Don't hard-code colours in panels.
+- User-visible strings go through `i18n.rs`: `tr(lang, "Français", "English")`; default locale
+  is French.
+- Flush the editor (`flush_editor`) before operations that read/rewrite the current document.
+- Keep `app.rs` handlers thin; testable logic lives in plain functions or crates and is covered
+  via `AuthorKitApp::for_tests` in `apps/desktop/tests/`.
+
+```rust
+// Panel: emit, don't mutate
+if ui.button("Rename").clicked() {
+    actions.push(NavAction::RenameScene(scene.id.clone()));
+}
+```

@@ -1,0 +1,24 @@
+---
+paths:
+  - "**/tests/**/*.rs"
+  - "scripts/coverage.sh"
+  - ".github/workflows/*.yml"
+---
+
+<!-- Generated from .cursor/rules/testing.mdc by scripts/sync-agent-config.sh. Do not edit. -->
+
+# Testing
+
+See `docs/guides/testing.md`.
+
+- Unit tests: `#[cfg(test)] mod tests` at the bottom of the module. Integration tests:
+  `<crate>/tests/*.rs`, public API only ([Cargo book](https://doc.rust-lang.org/cargo/guide/tests.html)).
+- Every bug fix gets a regression test; every new pure function gets unit tests.
+- Isolation: `tempfile::tempdir()` for projects, `AUTHORKIT_HOME` for global state, no network
+  (`JobKind::Mock`), no fixed sleeps (bounded polling only).
+- Include non-ASCII text (accents, emoji) in anything touching selections or anchors.
+- Desktop flows: `AuthorKitApp::for_tests(dir)` then call `handle_*` with actions.
+- Coverage gates (`scripts/coverage.sh` and CI must match): ak-core 85, ak-export 95,
+  ak-coherence 80, ak-llm 85 (excl. `openai_compat.rs`), desktop lib 74 (excl. paint modules).
+  Never lower a gate to pass CI.
+- Test names describe behaviour: `restore_from_trash_keeps_original_order`.

@@ -1,0 +1,32 @@
+[workspace]
+resolver = "2"
+members = [
+    "apps/desktop",
+    "crates/ak-core",
+    "crates/ak-llm",
+    "crates/ak-export",
+    "crates/ak-coherence",
+]
+default-members = ["apps/desktop"]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2021"
+license = "MIT"
+authors = ["Julien Moulin <julien@supralab.fr>"]
+homepage = "https://supralab.fr/en"
+repository = "https://github.com/SupraLab/authorkit"
+
+[workspace.dependencies]
+ak-core = { path = "crates/ak-core" }
+ak-llm = { path = "crates/ak-llm" }
+ak-export = { path = "crates/ak-export" }
+ak-coherence = { path = "crates/ak-coherence" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+thiserror = "2"
+anyhow = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+regex = "1"

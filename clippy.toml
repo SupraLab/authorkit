@@ -1,0 +1,3 @@
+# Workspace Clippy knobs. CI still runs with `-D warnings`; these tune thresholds
+# that are noisy for egui UI code without hiding correctness lints.
+too-many-arguments-threshold = 10
