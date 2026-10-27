@@ -93,6 +93,7 @@ jobs:
           awk -v ver="$VER" '
             $0 ~ "^## \\[" ver "\\]" {p=1; next}
             p && $0 ~ /^## \[/ {exit}
+            p && $0 ~ /^\[[^]]+\]: / {next}
             p {print}
           ' CHANGELOG.md > release-notes.md
           if [[ ! -s release-notes.md ]]; then
