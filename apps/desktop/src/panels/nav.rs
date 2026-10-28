@@ -198,6 +198,7 @@ fn act_block(
         ui,
         0,
         false,
+        None,
         |ui| {
             ui.label(
                 RichText::new(&act.title)
@@ -238,6 +239,7 @@ fn act_block(
             ui,
             1,
             false,
+            None,
             |ui| {
                 ui.label(
                     RichText::new(&ch.title)
@@ -308,6 +310,7 @@ fn act_block(
                 ui,
                 2,
                 selected,
+                selected.then_some(sid.as_str()),
                 |ui| {
                     ui.spacing_mut().item_spacing.x = 5.0;
                     widgets::icon_colored(
@@ -394,6 +397,7 @@ fn note_group(
             ui,
             1,
             selected,
+            selected.then_some(id.as_str()),
             |ui| {
                 ui.spacing_mut().item_spacing.x = 5.0;
                 widgets::icon_colored(
@@ -440,6 +444,7 @@ fn tree_row(
     ui: &mut Ui,
     depth: usize,
     selected: bool,
+    follow_id: Option<&str>,
     content: impl FnOnce(&mut Ui),
     actions: impl FnOnce(&mut Ui),
 ) -> bool {
@@ -462,6 +467,16 @@ fn tree_row(
         let fill = ui.visuals().selection.bg_fill;
         ui.painter().rect_filled(row_rect, 4.0, fill);
     }
+    // Bring a newly selected row into its ScrollArea once. The same id again
+    // must not fight a manual scroll.
+    if let Some(id) = follow_id {
+        let key = egui::Id::new("ak_nav_follow");
+        let changed = ui.data(|data| data.get_temp::<String>(key).as_deref() != Some(id));
+        if changed {
+            ui.scroll_to_rect(row_rect, None);
+            ui.data_mut(|data| data.insert_temp(key, id.to_string()));
+        }
+    }
 
     let mut content_clicked = false;
     ui.scope_builder(
@@ -469,7 +484,9 @@ fn tree_row(
             .max_rect(row_rect)
             .layout(egui::Layout::left_to_right(egui::Align::Center)),
         |ui| {
-            ui.set_clip_rect(row_rect);
+            // Intersect with the ScrollArea viewport. Replacing the clip lets
+            // rows below the fold paint over the Univers section.
+            ui.shrink_clip_rect(row_rect);
             ui.add_space(indent);
             let text_w = (ui.available_width() - actions_w).max(40.0);
             let text_rect = egui::Rect::from_min_size(ui.cursor().min, egui::vec2(text_w, row_h));
@@ -486,7 +503,7 @@ fn tree_row(
                 egui::Layout::left_to_right(egui::Align::Center),
                 |ui| {
                     ui.set_max_width(text_w);
-                    ui.set_clip_rect(ui.max_rect());
+                    ui.shrink_clip_rect(ui.max_rect());
                     // Labels must not offer text selection — row click selects the item.
                     ui.style_mut().interaction.selectable_labels = false;
                     content(ui);
@@ -505,4 +522,79 @@ fn tree_row(
         },
     );
     content_clicked
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn collect_text(
+        shape: &egui::epaint::Shape,
+        clip: egui::Rect,
+        out: &mut Vec<(String, egui::Rect)>,
+    ) {
+        match shape {
+            egui::epaint::Shape::Text(text) => {
+                out.push((text.galley.text().to_string(), clip));
+            }
+            egui::epaint::Shape::Vec(shapes) => {
+                for shape in shapes {
+                    collect_text(shape, clip, out);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn manuscript_rows_below_the_fold_do_not_paint_over_univers() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut project = ak_core::Project::create(dir.path(), "Livre", "Auteur").unwrap();
+        let act_id = project.manuscript.index.acts[0].id.clone();
+        let chapter_id = project.manuscript.index.acts[0].chapters[0].id.clone();
+        for index in 0..10 {
+            let title = if index == 9 { "LATEMARKER" } else { "Filler" };
+            project
+                .manuscript
+                .add_scene(dir.path(), &act_id, &chapter_id, title)
+                .unwrap();
+        }
+
+        let ctx = egui::Context::default();
+        let raw = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::vec2(320.0, 700.0),
+            )),
+            ..Default::default()
+        };
+        let output = ctx.run_ui(raw, |ui| {
+            egui::CentralPanel::default()
+                .frame(egui::Frame::NONE)
+                .show_inside(ui, |ui| {
+                    show(ui, &project, &NavSelection::Styles, 120.0, Lang::Fr);
+                });
+        });
+
+        let mut texts = Vec::new();
+        for clipped in &output.shapes {
+            collect_text(&clipped.shape, clipped.clip_rect, &mut texts);
+        }
+        let univers = texts
+            .iter()
+            .find(|(text, _)| text.contains("UNIVERS"))
+            .expect("univers header");
+        assert!(
+            texts.iter().any(|(text, _)| text.contains("Acte")),
+            "expected a visible manuscript row"
+        );
+        // The row exists in the project. With the scroll clip kept, egui culls it.
+        // Replacing that clip paints the title across the Univers header.
+        assert!(
+            !texts.iter().any(|(text, clip)| {
+                text.contains("LATEMARKER") && clip.bottom() > univers.1.top() + 1.0
+            }),
+            "a scene below the manuscript fold painted over Univers"
+        );
+    }
 }
