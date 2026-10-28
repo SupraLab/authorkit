@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Bulleted lists in the visual editor and on the selection toolbar. `* `, `- ` and `+ ` render as bullets; the button toggles them on each selected line.
 
+### Fixed
+
+- A long manuscript in the left nav no longer paints over the Univers list. Selecting a scene or note scrolls it into view once, without overriding a later manual scroll.
+
 ## [0.0.1] — 2026-10-27
 
 First public preview release.
