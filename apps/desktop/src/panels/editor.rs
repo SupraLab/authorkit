@@ -401,6 +401,82 @@ impl EditorState {
         self.selected_or_line_head().starts_with("> ")
     }
 
+    /// True when every non-empty line in the selection is an unordered list item.
+    pub fn is_unordered_list(&self) -> bool {
+        let mut any = false;
+        for line in self.lines_touching_selection() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            any = true;
+            if crate::md_layout::unordered_item(&line).is_none() {
+                return false;
+            }
+        }
+        any
+    }
+
+    /// Toggle `* ` on each line of the selection. Removes `* `, `- ` and `+ `
+    /// when every non-empty line is already an item.
+    pub fn toggle_unordered_list_at(&mut self, now: f64) {
+        let (start, end) = self.selection_line_span();
+        if start == end {
+            return;
+        }
+        let slice = self.body_char_slice(start, end).to_string();
+        let turning_off = slice_is_unordered_list(&slice);
+        let next = map_lines(&slice, |line| {
+            if line.trim().is_empty() {
+                return line.to_string();
+            }
+            if let Some((indent, _marker, content)) = crate::md_layout::unordered_item(line) {
+                if turning_off {
+                    return format!("{indent}{content}");
+                }
+                return line.to_string();
+            }
+            format!("* {line}")
+        });
+        self.sel_start = start;
+        self.sel_end = end;
+        self.has_selection = true;
+        self.replace_selection_at(&next, Some(now));
+        let new_end = start + next.chars().count();
+        self.sel_start = start;
+        self.sel_end = new_end;
+        self.has_selection = start != new_end;
+        self.pending_selection = Some((self.sel_start, self.sel_end));
+    }
+
+    /// Char span covering every line the caret or selection touches, excluding
+    /// the newline after the last line.
+    fn selection_line_span(&self) -> (usize, usize) {
+        let (a, b) = (
+            self.sel_start.min(self.sel_end),
+            self.sel_start.max(self.sel_end),
+        );
+        let start = self.char_line_start(a);
+        let last = if b > a { b - 1 } else { a };
+        (start, self.char_line_end(last))
+    }
+
+    fn char_line_end(&self, char_idx: usize) -> usize {
+        let chars: Vec<char> = self.body.chars().collect();
+        let mut end = char_idx.min(chars.len());
+        while end < chars.len() && chars[end] != '\n' {
+            end += 1;
+        }
+        end
+    }
+
+    fn lines_touching_selection(&self) -> Vec<String> {
+        let (start, end) = self.selection_line_span();
+        self.body_char_slice(start, end)
+            .lines()
+            .map(str::to_string)
+            .collect()
+    }
+
     fn selected_or_line_head(&self) -> String {
         if let Some(sel) = self.selected_text() {
             return sel.lines().next().unwrap_or(sel).to_string();
@@ -575,6 +651,36 @@ impl EditorState {
         self.has_selection = true;
         self.pending_selection = Some((self.sel_start, self.sel_end));
     }
+}
+
+fn slice_is_unordered_list(slice: &str) -> bool {
+    let mut any = false;
+    for line in slice.lines() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        any = true;
+        if crate::md_layout::unordered_item(line).is_none() {
+            return false;
+        }
+    }
+    any
+}
+
+fn map_lines(slice: &str, mut map: impl FnMut(&str) -> String) -> String {
+    let mut out = String::new();
+    let mut rest = slice;
+    while !rest.is_empty() {
+        if let Some(i) = rest.find('\n') {
+            out.push_str(&map(&rest[..i]));
+            out.push('\n');
+            rest = &rest[i + 1..];
+        } else {
+            out.push_str(&map(rest));
+            break;
+        }
+    }
+    out
 }
 
 fn strip_heading_prefix(sel: &str) -> &str {
@@ -1173,6 +1279,10 @@ fn selection_toolbar(
                         }
                         if widgets::icon_toggle(ui, &lucide::QUOTE, lang.quote(), quote).clicked() {
                             state.toggle_line_prefix_at("> ", now);
+                        }
+                        let list = state.is_unordered_list();
+                        if widgets::icon_toggle(ui, &lucide::LIST, lang.list(), list).clicked() {
+                            state.toggle_unordered_list_at(now);
                         }
                         ui.add_space(4.0);
                         ui.separator();

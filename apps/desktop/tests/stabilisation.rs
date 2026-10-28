@@ -140,6 +140,41 @@ fn style_toggle_roundtrip_bold_italic_quote_heading() {
 }
 
 #[test]
+fn unordered_list_toggle_roundtrip_keeps_other_markers() {
+    let mut ed = EditorState {
+        kind: EditorKind::Scene,
+        body: "à côté\n**gras**\n".into(),
+        sel_start: 0,
+        sel_end: "à côté\n**gras**\n".chars().count(),
+        has_selection: true,
+        ..Default::default()
+    };
+    ed.toggle_unordered_list_at(1.0);
+    assert_eq!(ed.body, "* à côté\n* **gras**\n");
+    assert!(ed.is_unordered_list());
+
+    ed.toggle_unordered_list_at(2.0);
+    assert_eq!(ed.body, "à côté\n**gras**\n");
+    assert!(!ed.is_unordered_list());
+
+    ed.body = "- un\n* deux".into();
+    ed.sel_start = 0;
+    ed.sel_end = ed.body.chars().count();
+    ed.has_selection = true;
+    assert!(ed.is_unordered_list());
+    ed.toggle_unordered_list_at(3.0);
+    assert_eq!(ed.body, "un\ndeux");
+
+    ed.body = "* déjà\nreste".into();
+    ed.sel_start = 0;
+    ed.sel_end = ed.body.chars().count();
+    ed.has_selection = true;
+    assert!(!ed.is_unordered_list());
+    ed.toggle_unordered_list_at(4.0);
+    assert_eq!(ed.body, "* déjà\n* reste");
+}
+
+#[test]
 fn undo_typing_format_ai_in_order() {
     let mut ed = EditorState {
         body: "Hello".into(),
